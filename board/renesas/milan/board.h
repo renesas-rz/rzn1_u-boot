@@ -25,12 +25,13 @@ struct pin_db {
 	u32	val;	/* setting value */
 };
 
-// SGL: Milan: Need to remove the use of these in board reset and memory config as we have no FPGA.
-#if 0
-#define	FPGA_BASE	0x18200000
-#define	FPGA_SRSTR	(FPGA_BASE + 0x00)
-#define		KEY_RESET	0xa5a5
-#define	FPGA_FPVERR	(FPGA_BASE + 0x50)
-#define	FPGA_BUSWMR1	(FPGA_BASE + 0x74)
-#define		MD1_IN		(1 << 9)
-#endif
+/* CPLD register base addresses */
+#define CPLD0_BASE		0x18000000
+#define CPLD1_BASE		0x18000002
+#define CPLD2_BASE		0x18000004
+#define CPLD3_BASE		0x18000006
+#define CPLD4_BASE		0x18000008
+#define CPLD5_BASE		0x1800000A
+#define CPLD6_BASE		0x1800000C
+#define CPLD7_BASE		0x1800000E
+

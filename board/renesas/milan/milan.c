@@ -157,19 +157,31 @@ int dram_init(void)
 
 int checkboard(void)
 {
-	unsigned short	val;
+	unsigned short	cpld0;
+	unsigned short	cpld1;
+	unsigned short	cpld2;
+	unsigned short	cpld3;
+	unsigned short	cpld4;
+	unsigned short	cpld5;
+	unsigned short	cpld6;
+	unsigned short	cpld7;
 
-// SGL: Milan: ToDo: Read out sensible board values for Milan. No FPGA on Milan to read them from, so for now set to zero.
-#if 1
-	val = 0;
-#else
-	val = readw(FPGA_FPVERR);
-#endif
-	printf("BOARD: MILAN (V%c%c.%c%c)\n",
-			(val >> 12) + '0',
-			((val >> 8) & 0xf) + '0',
-			((val >> 4) & 0xf) + '0',
-			(val & 0xf) + '0');
+	cpld0 = readb(CPLD0_BASE);
+	cpld1 = readb(CPLD1_BASE);
+	cpld2 = readb(CPLD2_BASE);
+	cpld3 = readb(CPLD3_BASE);
+	cpld4 = readb(CPLD4_BASE);
+	cpld5 = readb(CPLD5_BASE);
+	cpld6 = readb(CPLD6_BASE);
+	cpld7 = readb(CPLD7_BASE);
+
+	/* Print Milan board version bits and the board config in the CPLD registers */
+	printf("Board: Milan (version: 0x%x)\n", ((cpld0 >> 4) & 0x3));
+	printf("         [CPLD0: 0x%02x, CPLD1: 0x%02x, CPLD2: 0x%02x, CPLD3: 0x%02x]\n", 
+			cpld0, cpld1, cpld2, cpld3);
+	printf("         [CPLD4: 0x%02x, CPLD5: 0x%02x, CPLD6: 0x%02x, CPLD7: 0x%02x]\n",
+			cpld4, cpld5, cpld6, cpld7);
+
 	return 0;
 }
 
