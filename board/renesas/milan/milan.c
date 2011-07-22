@@ -51,63 +51,12 @@ void pin_init(void)
 
 void exbus_init(void)
 {
-// SGL: Milan: Switch settings to enable debug ethernet.
-#if 1
-// SH ETS settings:
-//	LBSC.ECS0CTRL.REG32  = 0x00000120;	/* 1Mb capacity, 16bit bus, same cyc as CS#, SRAM */
-//	LBSC.CS0CTRL.REG32   = 0x00008020;	/* Little Endian, 64Mb Capacity, 16bit bus, burst rom mode */
-//	LBSC.CSWCR0.REG32 	 = 0x02190338;	/* WRS=2,WRH=1,WRPulse=9 / RDS=3,RDH=3,RDPulse=8  */
-//	LBSC.CS0BSTCTL.REG32 = 0x00001000;	/* Area 0 burst lenght access - 8 cycles */
-//	LBSC.CS0BTPH.REG32 	 = 0x00000021;	/* 0 cycle hold, 2 cycles wait (1st), 1 cycles wait (2nd) */
-
+	/* Configure the LBSC */
 	EXB_W(CS0BSTCTL, 0x00001000);	/* Area 0 burst lenght access - 8 cycles */
-	EXB_W(CS0BTPH, 0x00000021);	/* 0 cycle hold, 2 cycles wait (1st), 1 cycles wait (2nd) */
-	EXB_W(CS0CTRL, 0x00008020);	/* Little Endian, 64Mb Capacity, 16bit bus, burst rom mode */
-	EXB_W(CS1CTRL, 0x00000020);	/* 16bit, SRAM */
+	EXB_W(CS0BTPH, 0x00000021);		/* 0 cycle hold, 2 cycles wait (1st), 1 cycles wait (2nd) */
+	EXB_W(CS0CTRL, 0x00008020);		/* Little Endian, 64Mb Capacity, 16bit bus, burst rom mode */
+	EXB_W(CS1CTRL, 0x00000020);		/* 16bit, SRAM */
 	EXB_W(ECS0CTRL, 0x00000120);	/* 1Mb capacity, 16bit bus, same cyc as CS#, SRAM */
-#else
-	EXB_W(CS0BSTCTL, 0);		/* none burst */
-	EXB_W(CS0BTPH, 0x000000f7);	/* a0h:0, a0w:15, a0b:7 */
-	EXB_W(CS0CTRL, 0x00008021);	/* little,64MB,16bit,BROM */
-	EXB_W(CS1CTRL, 0x00000020);	/* 16bit, SRAM */
-	EXB_W(ECS0CTRL, 0x00000920);	/* 9MB, 16bit, sram */
-
-	EXB_W(ECS1CTRL, 0x00000122);	/* 1MB, 16bit, ata */
-	EXB_W(ECS2CTRL, 0x00003620);	/* 54MB, 16bit, sram */
-
-	/* pulse control */
-	/* (write) setup, hold, pulse, (read) setup, hold, pulse */
-	EXB_W(CSWCR0, 0x02190338);	/* 2, 1, 9, 3, 3, 8 */
-	EXB_W(CSWCR1, 0x02190338);	/* 2, 1, 9, 3, 3, 8 */
-	EXB_W(ECSWCR0, 0x00280028);	/* 0, 2, 8, 0, 2, 8 */
-	EXB_W(ECSWCR1, 0x077f077f);	/* 7, 7, 15, 7, 7, 15 */
-	EXB_W(ECSWCR2, 0x077f077f);	/* 7, 7, 15, 7, 7, 15 */
-
-	EXB_W(CSPWCR0, 0x00000000);	/* v:0, rv:0, winv:0, */
-					/* exwt2:0, wxwt1:0 exwt0:0 */
-	EXB_W(CSPWCR1, 0x00000000);	/* v:0, rv:0, winv:0, */
-					/* exwt2:0, wxwt1:0 exwt0:0 */
-	EXB_W(EXSPWCR0, 0x00000029);	/* v:1, rv:0, winv:1, */
-					/* exwt2:0, wxwt1:0 exwt0:1 */
-	EXB_W(EXSPWCR1, 0x00000029);	/* v:1, rv:0, winv:1, */
-					/* exwt2:0, wxwt1:0 exwt0:1 */
-	EXB_W(EXSPWCR2, 0x00000000);	/* v:0, rv:0, winv:0, */
-					/* exwt2:0, wxwt1:0 exwt0:0 */
-	EXB_W(EXWTSYNC, 0x00000000);	/* sync2:0, sync1:0, sync0:0 */
-
-	EXB_W(CS1GDST, 0x00000000);	/* cs1gd:0, timer_set:0 */
-	EXB_W(ECS0GDST, 0x00000000);	/* ecs0gd:0, timer_set:0 */
-	EXB_W(ECS1GDST, 0x00000000);	/* ecs1gd:0, timer_set:0 */
-	EXB_W(ECS2GDST, 0x00000000);	/* ecs2gd:0, timer_set:0 */
-
-	EXB_W(ATACSCTRL, 0x00000004);
-	EXB_W(EXDMASET0, 0x00000008);	/* DM0ECS1:1 */
-	EXB_W(EXDMACR0, 0x00001404);	/* dbst:1, exql:1, exal:1 */
-	EXB_W(EXDMACR1, 0x00000004);	/* exal:1 */
-	EXB_W(EXDMACR2, 0x00000004);	/* exal:1 */
-	EXB_W(BCINTMR, 0x00000000);	/* attem:0 */
-	EXB_W(EXBATLV, 0x00000000);	/* ex-blv: 0 */
-#endif
 }
 
 static void uart_init(void)
