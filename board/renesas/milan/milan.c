@@ -354,10 +354,9 @@ void memc_init(void)
 
 void board_reset(void)
 {
-// SGL: Milan: No FPGA on Milan. ToDo: Determine if there is an equivalent way to reset on Milan? In meantime disable
-#if 0
-	writew(KEY_RESET, FPGA_SRSTR);
-#endif // SGL
+	/* Tell the CPLD to reset the board */
+	writeb(CPLD0_SOFT_RESET, CPLD0_BASE);
+ 
 	while (1)
 		;
 }

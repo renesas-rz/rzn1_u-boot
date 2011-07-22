@@ -35,3 +35,5 @@ struct pin_db {
 #define CPLD6_BASE		0x1800000C
 #define CPLD7_BASE		0x1800000E
 
+#define CPLD0_SOFT_RESET	0xA5
+
