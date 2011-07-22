@@ -320,18 +320,13 @@ void memc_init(void)
 	MEMC_W(DBCALTR, 0x06a406a4);	/* DBCALTR */
 	/* (32) */
 	MEMC_W(DBRFCNF0, 0xc8);		/* 200cycle */
-// SGL: Milan: No FPGA, for now we hard code the bus speed.
-//      Why are they querying the FPGA, why not just query the MD1 register directly...?
-#if 1
-	MEMC_W(DBRFCNF1, 0xaf0);	/* 400MHz */
-//	MEMC_W(DBRFCNF1, 0xed8);	/* 533MHz */
-#else
-	if (readw(FPGA_BUSWMR1) & MD1_IN) {	/* dipsw25-2 */
+
+	if (readl(MODEMR) & MD1) {	/* dip-switch MD_SW1-2 (off = 1) */
 		MEMC_W(DBRFCNF1, 0xed8);	/* 533MHz */
 	} else {
 		MEMC_W(DBRFCNF1, 0xaf0);	/* 400MHz */
 	} 
-#endif // SGL
+
 	MEMC_W(DBRFCNF2, 0);		/* REFINT:1/1 */
 	/* (33) */
 	MEMC_W(DBRFEN, 1);		/* DBRFEN. ARFEN */
