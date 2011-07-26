@@ -1,5 +1,5 @@
 /*
- * include/configs/bockw.h
+ * include/configs/milan.h
  *
  * Copyright(c) 2011 Renesas Electronics Corporation
  *
@@ -27,12 +27,9 @@
 #define	CONFIG_CMD_FLASH
 #define	CONFIG_CMD_MEMORY
 #define	CONFIG_CMD_MISC
-// SGL: Temp disable networking
-#if 1
 #define	CONFIG_CMD_NET
 #define	CONFIG_CMD_DHCP
 #define	CONFIG_CMD_PING
-#endif
 #define	CONFIG_CMD_RUN
 
 #define	CONFIG_CMDLINE_TAG
@@ -53,16 +50,9 @@
 #define	CONFIG_L2_OFF	1
 
 /* ram memory map */
-// SGL: Milan: Milan has no SRAM
-//#define	CONFIG_SYS_SRAM_BASE	0x04000000
-//#define	CONFIG_SYS_SRAM_SIZE	0x00800000
-// SGL: End
-
 #define	CONFIG_NR_DRAM_BANKS	1
-// SGL: Milan: Milan starts at 0x4000 0000, not like BockW at 0x6000 0000
-//#define	CONFIG_SYS_SDRAM_BASE	0x60000000
 #define	CONFIG_SYS_SDRAM_BASE	0x40000000
-// SGL: End
+
 #define	CONFIG_SYS_SDRAM_SIZE	(512 * 1024 * 1024)
 #define	CONFIG_SYS_MALLOC_LEN	(CONFIG_ENV_SIZE + 16 * 1024)
 #define	CONFIG_SYS_INIT_SP_ADDR	(0xfe798000 - 0x104)
@@ -78,10 +68,7 @@
 #define	CONFIG_SCIF_CONSOLE	1
 #define	CONFIG_CONS_SCIF0	1
 #define	SCIF0_BASE		0xffe40000
-// SGL: Milan: Milan has ext clk @ 1.8432 MHz, whilst BockW ext clk is 14.7456 MHz
-//#define	CONFIG_SYS_CLK_FREQ	14745600
 #define	CONFIG_SYS_CLK_FREQ     1843200
-// SGL: End
 #define	CONFIG_CPU_RCM1A	1
 
 #define	CONFIG_BAUDRATE	115200
@@ -91,12 +78,7 @@
 #define	CONFIG_NET_MULTI
 #define	CONFIG_SMC911X		1
 #define	CONFIG_SMC911X_16_BIT
-// SGL: Milan: Base addr is different in Milan.
-#if 1
 #define	CONFIG_SMC911X_BASE	0x18000100
-#else
-#define	CONFIG_SMC911X_BASE	0x18300000
-#endif
 
 /* flash configuration */
 #define	CONFIG_SYS_FLASH_CFI
