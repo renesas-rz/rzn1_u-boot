@@ -83,6 +83,10 @@ int board_init(void)
 	icache_enable();
 	invalidate_dcache();
 
+	/* Set the ARM NMI so that a NMI interrupt request is detected on signal level high */ 
+	writeb((readb(NMICTL) | NMI_BIT), 
+			NMICTL);
+
 	return 0;
 }
 
