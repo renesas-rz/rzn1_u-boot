@@ -32,6 +32,10 @@ extern void wait_usec(int);
 	writel(val, (x)->addr); \
 }
 
+/* ARM-INTC */
+#define NMICTL		0xfe440000
+#define	NMI_BIT		(1 << 0)
+
 /* pfc */
 #define	PMMR		0xfffc0000
 #define	GPSR0		0xfffc0004
