@@ -33,9 +33,9 @@ int print_cpuinfo(void)
 	printf("CPU  : R-CarM1A (md:0x%x)\n", md);
 	printf("       [CPU:%sMHz,SHwy:%sMHz,DDR:%sMHz,EXCLK:%sMHz]\n",
 			!(md & MD18) && (md & MD19) ? "800" : "???",
-			md & MD1 ? "266" : "200",
+			md & MD1 ? "267" : "200",
 			md & MD1 ? "533" : "400",
-			md & MD2 ? md & MD1 ? "50" : "44.44" : "66.66");
+			md & MD2 ? md & MD1 ? "44.44" : "50" : "66.66");
 	timer_init();
 	return 0;
 }

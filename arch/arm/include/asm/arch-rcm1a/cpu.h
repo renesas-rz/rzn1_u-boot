@@ -160,7 +160,7 @@ extern void wait_usec(int);
 #define		EXDMACR1	0x314
 #define		EXDMACR2	0x318
 #define		BCINTMR		0x338
-#define		EXBATLV		0x348
+#define		EXBATLV		0x340
 #define		ATACSCTRL	0x380
 #define	EXB_W(offset, val)	writel(val, EXB_BASE + (offset))
 
