@@ -174,7 +174,7 @@ void memc_init(void)
 	/* (4) */
 	MEMC_W(DBKIND, 0x7);		/* ddr3-sdram */
 	/* (5) */
-	MEMC_W(DBCONF0, 0x0e030a02);	/* RowAd:14, Bank:8, CoulumAd:10 */
+	MEMC_W(DBCONF0, 0x0f030a02);	/* RowAd:15, Bank:8, CoulumAd:10 */
 	MEMC_W(DBTR0, 0x8);		/* CL:8 */
 	MEMC_W(DBTR1, 0x6);		/* CWL:6 */
 	MEMC_W(DBTR2, 0);		/* AL:0 */
