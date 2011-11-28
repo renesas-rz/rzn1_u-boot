@@ -139,7 +139,6 @@ extern void wait_usec(int);
 #define		DBCALTR		0x0f8
 #define		DBRNK0		0x100
 #define		DBPDNCNF	0x180
-#define		DBDFICNT	0x244
 #define		DBBS0CNT0	0x300
 #define		DBBS0CNT1	0x304
 #define	MEMC_W(offset, val)	writel(val, MEMC_BASE + (offset))

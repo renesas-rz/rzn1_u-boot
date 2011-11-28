@@ -101,7 +101,7 @@ static void uart_init(void)
 
 static void fpga_init(void)
 {
-	/* Select ExBus A25 */
+	/* Select ExBus (A24, A25, EX_CS1#, RD/WR) */
 	writew(readw(FPGA_BUSSW_EN) | LBSC_EN, FPGA_BUSSW_EN);
 	writew(readw(FPGA_SD1_FUNC) | SD1_SEL0, FPGA_SD1_FUNC);
 
@@ -200,22 +200,25 @@ wait_usec(int usec)
 
 void memc_init(void)
 {
+	unsigned int	md = readl(MODEMR);
+
+	/* ---- PHY setting-1 ---- */
 	/* (4) */
 	PHY_W(PYFUNCCTRL , 0x00000101);	/* DVDDQ=1.5V : clear soft reset */
 	MEMC_W(DBCMD     , 0x2100d066);	/* Opt=RstH arg=0xd066(100usec@533MHz)
 						MRESETB=H */
-
+	/* wait */
 	MEMC_W(DBCMD     , 0x0000d066);
 	MEMC_W(DBCMD     , 0x0000d066);
 	MEMC_W(DBCMD     , 0x0000d066);
 	MEMC_W(DBCMD     , 0x0000d066);
 
+	/* ---- DBSC3 setting-1 ---- */
 	/* (5) */
 	MEMC_W(DBKIND    , 0x00000007);
 	/* (6) */
 	MEMC_W(DBCONF0   , 0x0e030a01);
-	MEMC_W(DBPHYTYPE , 0x00000001);	/* DBPHYTYPE test */
-	MEMC_W(DBBL      , 0x00000000);
+	MEMC_W(DBPHYTYPE , 0x00000001);	/* DFI */
 	MEMC_W(DBTR0     , 0x00000007);
 	MEMC_W(DBTR1     , 0x00000006);
 	MEMC_W(DBTR2     , 0x00000000);
@@ -237,17 +240,14 @@ void memc_init(void)
 	MEMC_W(DBTR18    , 0x00000400);
 	MEMC_W(DBTR19    , 0x00000040);
 	MEMC_W(DBRNK0    , 0x00120033);
+	/* (7) */
+	MEMC_W(DBADJ0    , 0x00000001);
+	/* (8) & (9) */
+	MEMC_W(DBADJ2    , 0x00002008);
 
-	MEMC_W(DBBS0CNT0 , 0x00000001);
-	MEMC_W(DBBS0CNT1 , 0x00000000);
-
-	/* (27) */
-	MEMC_W(DBRFCNF0  , 0x000000ff);
-	MEMC_W(DBRFCNF1  , 0x000836b0);
-	MEMC_W(DBRFCNF2  , 0x00000001);
-	MEMC_W(DBCMD     , 0x0000d066);
+	/* ---- PHY setting-2 ---- */
 	/* (10) */
-	PHY_W(PYDLLCTRL  , 0x00000005);
+	PHY_W(PYDLLCTRL  , md & MD11 ? 0x00000007 : 0x00000003);
 	/* (11) */
 	PHY_W(PYZQCALCTRL, 0x00000182);
 	/* (12) */
@@ -259,45 +259,55 @@ void memc_init(void)
 	/* (15) */
 	PHY_W(PYFIFOINIT , 0x00000101);
 	/* (16) */
-	PHY_W(PYOUTCTRL  , 0x020A0806);
-
-	PHY_W(PYWLCTRL1  , 0x00000000);
+	PHY_W(PYOUTCTRL  , 0x020A0807);
 	/* (17) */
-	PHY_W(PYDLLCTRL  , 0x00000004);
+	PHY_W(PYDLLCTRL  , md & MD11 ? 0x00000006 : 0x00000002);
 	/* (18) */
 	PHY_W(PYZQCALCTRL, 0x00000183);
 
+	/* ---- DDR3-SDRAM setting ---- */
+	/* (19) */
 	MEMC_W(DBCMD     , 0x0000d066);
-
-	PHY_W(PYDQCALOFS1, 0x00004646);
-	PHY_W(PYDQCALEXP , 0x800000AA);
-	MEMC_W(DBDFICNT  , 0x00000000);
-	/* (16)-2? */
-	PHY_W(PYOUTCTRL  , 0x020A0807);
-
+	MEMC_W(DBCMD     , 0x0000d066);
+	MEMC_W(DBCMD     , 0x0000d066);
+	MEMC_W(DBCMD     , 0x0000d066);
+	MEMC_W(DBCMD     , 0x0000d066);
+	/* (20) */
 	MEMC_W(DBCMD     , 0x11000005);
 	MEMC_W(DBCMD     , 0x0b040000);
 	MEMC_W(DBCMD     , 0x00040100);
+	/* (21) */
 	MEMC_W(DBCMD     , 0x2a000008);
-	MEMC_W(DBCMD     , 0x2b000000);
-	MEMC_W(DBCMD     , 0x29000002);
-	MEMC_W(DBCMD     , 0x28000830);
-	MEMC_W(DBCMD     , 0x03000200);
 	MEMC_W(DBCMD     , 0x2a010008);
+	/* (22) */
+	MEMC_W(DBCMD     , 0x2b000000);
 	MEMC_W(DBCMD     , 0x2b010000);
+	/* (23) */
+	MEMC_W(DBCMD     , 0x29000002);
 	MEMC_W(DBCMD     , 0x29010002);
+	/* (24) */
+	MEMC_W(DBCMD     , 0x28000830);
 	MEMC_W(DBCMD     , 0x28010830);
+	/* (25) */
+	MEMC_W(DBCMD     , 0x03000200);
 	MEMC_W(DBCMD     , 0x03010200);
 
-	/* (30) */
-	MEMC_R(DBWAIT);
-
+	/* ---- DBSC3 setting-2 ---- */
+	/* (26) */
+	MEMC_W(DBBS0CNT0 , 0x00000001);
+	MEMC_W(DBBS0CNT1 , 0x00000000);
 	MEMC_W(DBCALCNF  , 0x00000005);
 	MEMC_W(DBCALTR   , 0x07d10f89);
+	/* (27) */
+	MEMC_W(DBRFCNF0  , 0x000000ff);
+	MEMC_W(DBRFCNF1  , 0x000836b0);
+	MEMC_W(DBRFCNF2  , 0x00000001);
 	/* (28) */
 	MEMC_W(DBRFEN    , 0x00000001);
 	/* (29) */
 	MEMC_W(DBACEN    , 0x00000001);
+	/* (30) */
+	MEMC_R(DBWAIT);
 }
 
 void board_reset(void)
