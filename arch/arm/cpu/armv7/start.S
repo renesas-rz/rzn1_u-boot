@@ -115,6 +115,12 @@ reset:
 	orr	r0, r0, #0xd3
 	msr	cpsr,r0
 
+#if defined(CONFIG_ARM_ERRATA_743622)
+	mrc	p15, 0, r0, c15, c0, 1
+	orr	r0, r0, #0x40
+	mcr	p15, 0, r0, c15, c0, 1
+#endif
+
 #if (CONFIG_OMAP34XX)
 	/* Copy vectors to mask ROM indirect addr */
 	adr	r0, _start		@ r0 <- current position of code

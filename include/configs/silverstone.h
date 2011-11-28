@@ -126,4 +126,6 @@
 	"stdin=serial\0"		\
 	"stdout=serial\0"
 
+#define CONFIG_ARM_ERRATA_743622
+
 #endif	/* __CONFIG_H */
