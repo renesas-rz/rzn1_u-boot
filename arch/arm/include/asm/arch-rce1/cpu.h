@@ -96,7 +96,6 @@ extern void wait_usec(int);
 /* reset/wdt */
 #define	MODEMR	0xffcc0020
 #define		MD11	(1 << 11)
-#define		MD12	(1 << 12)
 
 /* dbsc */
 #define	MEMC_BASE	0xfe800000

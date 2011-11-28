@@ -30,26 +30,13 @@ void reset_cpu(ulong addr)
 int print_cpuinfo(void)
 {
 	unsigned int	md = readl(MODEMR);
-	unsigned char	*cddr;
-
-	if (md & MD12) {
-		if (md & MD11)
-			cddr = "400";
-		else
-			cddr = "533";
-	} else {
-		if (md & MD11)
-			cddr = "800";
-		else
-			cddr = "1067";
-	}
 
 	printf("CPU  : R-CarE1 (md:0x%x)\n", md);
 	printf("       [CPU:%sMHz,SHwy:%sMHz,DDR:%sMHz,EXCLK:%sMHz]\n",
 			md & MD11 ? "400" : "533",
 			md & MD11 ? "200" : "266",
-			cddr,
-			md & MD11 ? "50" : "66.66");
+			md & MD11 ? "800" : "1067",
+			md & MD11 ? "50" : "66.7");
 	timer_init();
 	return 0;
 }
