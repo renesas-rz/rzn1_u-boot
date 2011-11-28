@@ -126,6 +126,8 @@
 	"stdin=serial\0"		\
 	"stdout=serial\0"
 
+#define BOARD_LATE_INIT             /* call board_late_init during start up */
+
 #define CONFIG_ARM_ERRATA_743622
 
 #endif	/* __CONFIG_H */

@@ -62,8 +62,7 @@ void exbus_init(void)
 
 	/* pulse control */
 	/* (write) setup, hold, pulse, (read) setup, hold, pulse */
-	EXB_W(CSWCR0   , 0x01140127);
-	EXB_W(CSWCR1   , 0x01170227);
+	EXB_W(CSWCR1   , 0x01270227);
 	EXB_W(ECSWCR0  , 0x02240225);
 	EXB_W(ECSWCR1  , 0x01170117);
 	EXB_W(ECSWCR2  , 0x01170117);
@@ -84,6 +83,11 @@ void exbus_init(void)
 	EXB_W(ECS2GDST , 0x00000000);	/* ecs2gd:0, timer_set:0 */
 
 	EXB_W(ATACSCTRL, 0x00000004);
+}
+
+static void exbus_late_init(void)
+{
+	EXB_W(CSWCR0   , 0x01240227);
 }
 
 static void uart_init(void)
@@ -133,6 +137,14 @@ int board_init(void)
 
 	icache_enable();
 	invalidate_dcache();
+
+	return 0;
+}
+
+int board_late_init(void)
+{
+	/* This function is called after relocating. Now running in SDRAM. */
+	exbus_late_init();
 
 	return 0;
 }
