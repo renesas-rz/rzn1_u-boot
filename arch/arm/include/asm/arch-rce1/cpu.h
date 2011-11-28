@@ -83,16 +83,6 @@ extern void wait_usec(int);
 #define MEMO		0xfffc0200
 #define BTMEMO		0xfffc0204
 
-/* gpio */
-#define GPIO3_BASE	0xffc43000
-#define		IOINTSEL3	(GPIO3_BASE + 0x00)
-#define		INOUTSEL3	(GPIO3_BASE + 0x04)
-#define		POSNEG3		(GPIO3_BASE + 0x20)
-#define GPIO4_BASE	0xffc44000
-#define		IOINTSEL4	(GPIO4_BASE + 0x00)
-#define		INOUTSEL4	(GPIO4_BASE + 0x04)
-#define		POSNEG4		(GPIO4_BASE + 0x20)
-
 /* reset/wdt */
 #define	MODEMR	0xffcc0020
 #define		MD11	(1 << 11)
