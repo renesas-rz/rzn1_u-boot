@@ -188,7 +188,7 @@ void memc_init(void)
 	MEMC_W(DBTR10, 0x8);		/* TWR:8 */
 	MEMC_W(DBTR11, 0x8);		/* TRDWR:8 */
 	MEMC_W(DBTR12, 0xe);		/* TWRRD:14 */
-	MEMC_W(DBTR13, 0x56);		/* TRFC:86 */
+	MEMC_W(DBTR13, 0x8B);		/* TRFC:139 */
 	MEMC_W(DBTR14, 0xd0004);	/* DLL:13, TCKEH:4 */
 	MEMC_W(DBTR15, 0x4);		/* TCKEL:4 */
 	MEMC_W(DBTR16, 0x10181001);	/* DQL:24 */
