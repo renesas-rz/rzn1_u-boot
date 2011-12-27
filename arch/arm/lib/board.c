@@ -54,6 +54,10 @@
 #include <miiphy.h>
 #endif
 
+#if defined(CONFIG_BOCKW)
+#include <asm/io.h>
+#endif
+
 #ifdef CONFIG_DRIVER_SMC91111
 #include "../drivers/net/smc91111.h"
 #endif
@@ -312,7 +316,17 @@ void board_init_f (ulong bootflag)
 #if !defined(CONFIG_BOCKW)
 	addr = CONFIG_SYS_SDRAM_BASE + gd->ram_size;
 #else
-	addr = CONFIG_SYS_SRAM_BASE + CONFIG_SYS_SRAM_SIZE;
+	{
+		ulong sram, data;
+
+		sram = CONFIG_SYS_SRAM_BASE + CONFIG_SYS_SRAM_SIZE - 4;
+		data = readl(sram);
+		writel(~data, sram);
+		if (readl(sram) == ~data)
+			addr = CONFIG_SYS_SRAM_BASE + CONFIG_SYS_SRAM_SIZE;
+		else
+			addr = CONFIG_SYS_SRAM_BASE2 + CONFIG_SYS_SRAM_SIZE2;
+	}
 #endif
 
 #ifdef CONFIG_LOGBUFFER
