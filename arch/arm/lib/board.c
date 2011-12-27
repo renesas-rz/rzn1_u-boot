@@ -1,4 +1,8 @@
 /*
+ * arch/arm/lib/board.c
+ *
+ * Copyright (C) 2011 Renesas Electronics Corporation
+ *
  * (C) Copyright 2002-2006
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
