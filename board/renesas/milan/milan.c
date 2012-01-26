@@ -57,6 +57,10 @@ void exbus_init(void)
 	EXB_W(CS0CTRL, 0x00008020);		/* Little Endian, 64Mb Capacity, 16bit bus, burst rom mode */
 	EXB_W(CS1CTRL, 0x00000020);		/* 16bit, SRAM */
 	EXB_W(ECS0CTRL, 0x00000120);	/* 1Mb capacity, 16bit bus, same cyc as CS#, SRAM */
+
+	/* pulse control */
+	/* (write) setup, hold, pulse, (read) setup, hold, pulse */
+	EXB_W(ECSWCR0, 0x00280028);	/* 0, 2, 8, 0, 2, 8 */
 }
 
 static void uart_init(void)
