@@ -1,7 +1,7 @@
 /*
  * include/configs/silverstone.h
  *
- * Copyright (C) 2011 Renesas Electronics Corporation
+ * Copyright (C) 2011-2012 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -80,7 +80,7 @@
 /* ethernet */
 #define	CONFIG_NET_MULTI
 #define	CONFIG_SMC911X		1
-#define	CONFIG_SMC911X_16_BIT
+#define	CONFIG_SMC911X_32_BIT
 #define	CONFIG_SMC911X_BASE	0x18300000
 
 /* flash configuration */
