@@ -1,8 +1,8 @@
 /*
  * arch/arm/cpu/armv7/start.S
  *
- * Copyright (C) 2011 Renesas Electronics Corporation
- * 
+ * Copyright (C) 2011-2012 Renesas Electronics Corporation
+ *
  * armboot - Startup Code for OMAP3530/ARM Cortex CPU-core
  *
  * Copyright (c) 2004	Texas Instruments <r-woodruff2@ti.com>
