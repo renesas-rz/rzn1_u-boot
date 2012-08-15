@@ -25,6 +25,9 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#define CONFIG_SDRAM_OFFSET_FOR_RT	((512) * 1024 * 1024)
+#define CONFIG_SDRAM_BLANK_SIZE		((128) * 1024 * 1024)
+
 struct pin_db	pin_guard[] = {
 	{ MOD_SEL, 0x01c00000, 0x00800000 },
 	{ MOD_SEL2, 0x0c000000, 0x04000000 },
@@ -48,6 +51,200 @@ struct pin_db	pin_guard[] = {
 
 struct pin_db	pin_tbl[] = {
 };
+
+static inline void modifyl(unsigned long clr, unsigned long set, unsigned long addr)
+{
+	unsigned long tmp;
+
+	tmp = readl(addr);
+	tmp &= ~clr;
+	tmp |= set;
+	writel(tmp, addr);
+}
+
+static int meram_icb_init(void)
+{
+	writel(0x1, ICB_SWAP);
+	writel(0x1, ICB_TRNCTRL);
+	writel(0x1, VPC_TRNCTRL);
+
+	return 0;
+}
+
+static int vdp_power_supply(int on)
+{
+	int i, j;
+	const unsigned long vdp_bit = 1 << 21;
+
+	if ((readl(PWRSR3) & (on ? 0x10 : 0x01)))
+		return 0;
+
+	writel(vdp_bit, SYSCIER);
+	modifyl(0, vdp_bit, SYSCIMR);
+	for (i = 0; i < 100; i++) {
+		for (j = 0; j < 100; j++) {
+			if (readl(SYSCSR) & (on ? 0x2 : 0x1))
+				break;
+			wait_usec(1);
+		}
+		writel(0x1, on ? PWRONCR3 : PWROFFCR3);
+		wait_usec(1);
+		if (!(readl(PWRER3) & 0x1))
+			break;
+	}
+	for (i = 0; i < 1000; i++) {
+		if (readl(SYSCISR) & vdp_bit)
+			break;
+		wait_usec(1);
+	}
+	writel(vdp_bit, SYSCISCR);
+
+	return 0;
+}
+
+static int icb_clk_enable(void)
+{
+	int i;
+
+	if (!(readl(MSTPSR4) & (1 << 10)))
+		return 0;
+
+	modifyl(1 << 10, 0, MSTPCR4);
+
+	for (i = 0; i < 1000; i++) {
+		if (!(readl(MSTPSR4) & (1 << 10)))
+			break;
+		wait_usec(1);
+	}
+
+	return 0;
+}
+
+static int vpc_clk_enable(void)
+{
+	int i;
+
+	if (!(readl(MSTPSR4) & (1 << 8)))
+		return 0;
+
+	modifyl(1 << 8, 0, MSTPCR4);
+
+	for (i = 0; i < 1000; i++) {
+		if (!(readl(MSTPSR4) & (1 << 8)))
+			break;
+		wait_usec(1);
+	}
+
+	return 0;
+}
+
+static int _2ddmac_clk_enable(void)
+{
+	int i;
+
+	if (!(readl(MSTPCR5) & (1 << 15)))
+		return 0;
+
+	modifyl(1 << 15, 0, MSTPCR5);
+
+	for (i = 0; i < 1000; i++) {
+		if (!(readl(MSTPCR5) & (1 << 15)))
+			break;
+		wait_usec(1);
+	}
+
+	return 0;
+}
+
+static int meram_clk_enable(void)
+{
+	int i;
+
+	if (!(readl(MSTPCR5) & (1 << 13)))
+		return 0;
+
+	modifyl(1 << 13, 0, MSTPCR5);
+
+	for (i = 0; i < 1000; i++) {
+		if (!(readl(MSTPCR5) & (1 << 13)))
+			break;
+		wait_usec(1);
+	}
+
+	return 0;
+}
+
+static int imrx0_clk_enable(void)
+{
+	int i;
+
+	if (!(readl(MSTPSR1) & (1 << 22)))
+		return 0;
+
+	modifyl(1 << 22, 0, MSTPCR1);
+
+	for (i = 0; i < 1000; i++) {
+		if (!(readl(MSTPSR1) & (1 << 22)))
+			break;
+		wait_usec(1);
+	}
+
+	return 0;
+}
+
+static int imrx1_clk_enable(void)
+{
+	int i;
+
+	if (!(readl(MSTPSR1) & (1 << 21)))
+		return 0;
+
+	modifyl(1 << 21, 0, MSTPCR1);
+
+	for (i = 0; i < 1000; i++) {
+		if (!(readl(MSTPSR1) & (1 << 21)))
+			break;
+		wait_usec(1);
+	}
+
+	return 0;
+}
+
+static int imrlsx1_clk_enable(void)
+{
+	int i;
+
+	if (!(readl(MSTPSR1) & (1 << 23)))
+		return 0;
+
+	modifyl(1 << 23, 0, MSTPCR1);
+
+	for (i = 0; i < 1000; i++) {
+		if (!(readl(MSTPSR1) & (1 << 23)))
+			break;
+		wait_usec(1);
+	}
+
+	return 0;
+}
+
+static int vsp1_clk_enable(void)
+{
+	int i;
+
+	if (!(readl(MSTPCR5) & (1 << 14)))
+		return 0;
+
+	modifyl(1 << 14, 0, MSTPCR5);
+
+	for (i = 0; i < 1000; i++) {
+		if (!(readl(MSTPCR5) & (1 << 14)))
+			break;
+		wait_usec(1);
+	}
+
+	return 0;
+}
 
 void pin_init(void)
 {
@@ -122,6 +319,19 @@ static void uart_init(void)
 
 int board_early_init_f(void)
 {
+	vpc_clk_enable();
+	_2ddmac_clk_enable();
+	imrx0_clk_enable();
+	imrx1_clk_enable();
+	imrlsx1_clk_enable();
+	vsp1_clk_enable();
+
+	meram_clk_enable();
+	icb_clk_enable();
+
+	meram_icb_init();
+	vdp_power_supply(1);
+
 	uart_init();
 
 	return 0;
@@ -130,7 +340,7 @@ int board_early_init_f(void)
 int board_init(void)
 {
 	gd->bd->bi_arch_number = MACH_TYPE_MARZEN;
-	gd->bd->bi_boot_params = CONFIG_SYS_SDRAM_BASE + 0x100;
+	gd->bd->bi_boot_params = CONFIG_SYS_SDRAM_BASE + CONFIG_SDRAM_OFFSET_FOR_RT + 0x100;
 
 	icache_enable();
 	invalidate_dcache();
@@ -158,9 +368,9 @@ int board_eth_init(bd_t *bis)
 
 int dram_init(void)
 {
-	gd->bd->bi_dram[0].start = CONFIG_SYS_SDRAM_BASE;
-	gd->bd->bi_dram[0].size = CONFIG_SYS_SDRAM_SIZE;
-	gd->ram_size = CONFIG_SYS_SDRAM_SIZE;
+	gd->bd->bi_dram[0].start = CONFIG_SYS_SDRAM_BASE + CONFIG_SDRAM_OFFSET_FOR_RT;
+	gd->bd->bi_dram[0].size = CONFIG_SYS_SDRAM_SIZE - CONFIG_SDRAM_OFFSET_FOR_RT - CONFIG_SDRAM_BLANK_SIZE;
+	gd->ram_size = CONFIG_SYS_SDRAM_SIZE - CONFIG_SDRAM_OFFSET_FOR_RT - CONFIG_SDRAM_BLANK_SIZE;
 	return 0;
 }
 

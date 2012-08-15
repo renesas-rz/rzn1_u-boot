@@ -31,6 +31,66 @@ extern void wait_usec(int);
 	writel(val, (x)->addr); \
 }
 
+/* Common-PF@H1 */
+
+/* MERAM */
+#define	ICB_SWAP	0xfffe1004
+#define	ICB_TRNCTRL	0xfffe100c
+#define VPC_TRNCTRL 0xfffe1014
+
+/* SYSC */
+#define SYSCSR		0xffd85000
+#define SYSCISR		0xffd85004
+#define SYSCISCR	0xffd85008
+#define SYSCIER		0xffd8500c
+#define SYSCIMR		0xffd85010
+#define SYSCOFSR	0xffd85020
+#define SYSCOFSCR	0xffd85024
+#define SYSCOFSER	0xffd85028
+
+#define PWRSR0		0xffd85040
+#define PWROFFCR0	0xffd85044
+#define PWROFFSR0	0xffd85048
+#define PWRONCR0	0xffd8504c
+#define PWRONSR0	0xffd85050
+#define PWRER0		0xffd85054
+
+#define PWRSR2		0xffd850c0
+#define PWROFFCR2	0xffd850c4
+#define PWROFFSR2	0xffd850c8
+#define PWRONCR2	0xffd850cc
+#define PWRONSR2	0xffd850d0
+#define PWRER2		0xffd850d4
+
+#define PWRSR3		0xffd85100
+#define PWROFFCR3	0xffd85104
+#define PWROFFSR3	0xffd85108
+#define PWRONCR3	0xffd8510c
+#define PWRONSR3	0xffd85110
+#define PWRER3		0xffd85114
+
+#define PWRSR4		0xffd85140
+#define PWROFFCR4	0xffd85144
+#define PWROFFSR4	0xffd85148
+#define PWRONCR4	0xffd8514c
+#define PWRONSR4	0xffd85150
+#define PWRER4		0xffd85154
+
+/* cpg */
+#define	FRQMR		0xffc80014
+#define	MSTPCR0		0xffc80030
+#define	MSTPCR1		0xffc80034
+#define	MSTPCR3		0xffc8003c
+#define	MSTPSR1		0xffc80044
+#define	MSTPSR4		0xffc80048
+#define	MSTPSR6		0xffc8004c
+#define	MSTPCR4		0xffc80050
+#define	MSTPCR5		0xffc80054
+#define	MSTPCR6		0xffc80058
+#define	MSTPCR7		0xffc80040
+#define	SH4AIFC		0xfe400000
+#define	SH4ASTBCR	0xfe400004
+
 /* pfc */
 #define	PMMR		0xfffc0000
 #define	GPSR0		0xfffc0004
