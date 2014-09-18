@@ -297,6 +297,20 @@ int spi_flash_cmd_write_ops(struct spi_flash *flash, u32 offset,
 	u8 cmd[SPI_FLASH_CMD_LEN];
 	int ret = -1;
 
+	/* Handle memory-mapped SPI */
+	if (flash->spi->memory_map_write) {
+		ret = spi_claim_bus(flash->spi);
+		if (ret) {
+			debug("SF: unable to claim SPI bus\n");
+			return ret;
+		}
+		spi_xfer(flash->spi, 0, NULL, NULL, SPI_XFER_MMAP_WRITE);
+		memcpy(flash->spi->memory_map_write + offset, buf, len);
+		spi_xfer(flash->spi, 0, NULL, NULL, SPI_XFER_MMAP_END);
+		spi_release_bus(flash->spi);
+		return 0;
+	}
+
 	page_size = flash->page_size;
 
 	cmd[0] = flash->write_cmd;
