@@ -278,6 +278,19 @@ static inline int spi_w8r8(struct spi_slave *slave, unsigned char byte)
 	return ret < 0 ? ret : din[1];
 }
 
+#ifdef CONFIG_SPI_REGISTER_FLASH
+/**
+ * Inform the SPI slave that a flash has been allocated
+ * This is used to allow the spi slave to possibly configure
+ * the underlying hardware using the number of address bytes,
+ * number of blocks etc.
+ * @slave:	The SPI slave we're communicating with
+ * @flash:	The flash we are registering
+ */
+struct spi_flash;
+void spi_slave_register_flash(struct spi_slave *slave, struct spi_flash *flash);
+#endif
+
 /**
  * Set up a SPI slave for a particular device tree node
  *
