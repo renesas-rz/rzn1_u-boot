@@ -1088,6 +1088,16 @@ int spi_flash_scan(struct spi_flash *flash)
 	}
 #endif
 
+#ifdef CONFIG_SPI_REGISTER_FLASH
+	/*
+	 * 'clever' SPI controllers that are dedicated to flashes and QSPI
+	 * flashes needs to know all sort of parameters, like the quad mode,
+	 * number of dummy bytes and so on. Therefore we 'register' the flash
+	 * with the slave to give it a chance to keep it around
+	 */
+	spi_slave_register_flash(flash);
+#endif
+
 #ifndef CONFIG_SPL_BUILD
 	printf("SF: Detected %s with page size ", flash->name);
 	print_size(flash->page_size, ", erase size ");
