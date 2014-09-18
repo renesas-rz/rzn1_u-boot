@@ -351,6 +351,15 @@ static struct spi_flash *spi_flash_probe_slave(struct spi_slave *spi)
 		puts(" Full access #define CONFIG_SPI_FLASH_BAR\n");
 	}
 #endif
+#ifdef CONFIG_SPI_REGISTER_FLASH
+	/*
+	 * 'clever' SPI controllers that are dedicated to flashes and QSPI
+	 * flashes needs to know all sort of parameters, like the quad mode,
+	 * number of dummy bytes and so on. Therefore we 'register' the flash
+	 * with the slave to give it a chance to keep it around
+	 */
+	spi_slave_register_flash(flash->spi, flash);
+#endif
 
 	/* Release spi bus */
 	spi_release_bus(spi);
