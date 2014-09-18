@@ -31,6 +31,7 @@
 #define SPI_XFER_MMAP_END	0x10	/* Memory Mapped End */
 #define SPI_XFER_ONCE		(SPI_XFER_BEGIN | SPI_XFER_END)
 #define SPI_XFER_U_PAGE		(1 << 5)
+#define SPI_XFER_MMAP_WRITE	(1 << 6)/* Memory Mapped Write Access */
 
 /* SPI TX operation modes */
 #define SPI_OPM_TX_QPP		1 << 0
@@ -78,6 +79,7 @@ struct spi_slave {
 	unsigned int wordlen;
 	unsigned int max_write_size;
 	void *memory_map;
+	void *memory_map_write;
 	u8 option;
 	u8 flags;
 };

@@ -296,6 +296,30 @@ int spi_flash_cmd_write_ops(struct spi_flash *flash, u32 offset,
 	size_t chunk_len, actual;
 	u8 cmd[SPI_FLASH_CMD_LEN];
 	int ret = -1;
+	unsigned long timeout = SPI_FLASH_PROG_TIMEOUT;
+
+	/* Handle memory-mapped SPI */
+	if (flash->spi->memory_map_write) {
+		ret = spi_claim_bus(flash->spi);
+		if (ret) {
+			debug("SF: unable to claim SPI bus\n");
+			return ret;
+		}
+		spi_xfer(flash->spi, 0, NULL, NULL, SPI_XFER_MMAP_WRITE);
+		memcpy(flash->spi->memory_map_write + offset, buf, len);
+		spi_xfer(flash->spi, 0, NULL, NULL, SPI_XFER_MMAP_END);
+
+		ret = spi_flash_cmd_wait_ready(flash, timeout);
+		if (ret < 0) {
+			debug("SF: write %s timed out\n",
+			      timeout == SPI_FLASH_PROG_TIMEOUT ?
+				"program" : "page erase");
+			return ret;
+		}
+
+		spi_release_bus(flash->spi);
+		return 0;
+	}
 
 	page_size = flash->page_size;
 
