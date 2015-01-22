@@ -54,6 +54,7 @@ enum {
 	PKG_HYP_BIT	= 18,	/* Start code in HYP(from NONSEC) mode */
 	PKG_NOCRC_BIT	= 19,	/* Skip CRC (if on QSPI) */
 	PKG_INITRAMFS_BIT	= 20, /* Data package is linux initramfs */
+	PKG_ALT_BIT	= 21, 	/* Code is alternative bootloader */
 	/* Rest of the bits are free */
 };
 
@@ -69,11 +70,12 @@ enum {
 #define PKG_SET_SRC(e, s) (e)->pkg = ((e)->pkg & ~(0xf << PKG_SRC_BIT)) | \
 				((s & 0xf) << PKG_SRC_BIT)
 #define PKG_IS_BACKUP(e) ((e)->pkg & (1 << PKG_BACKUP_BIT))
-#define PKG_IS_HYP(e) ((e)->pkg & (1 << PKG_IS_HYP))
+#define PKG_IS_HYP(e) ((e)->pkg & (1 << PKG_HYP_BIT))
 /* HYP implies NONSEC */
 #define PKG_IS_NONSEC(e) (PKG_IS_HYP(e) || ((e)->pkg & (1 << PKG_NONSEC_BIT)))
 #define PKG_IS_NOCRC(e) ((e)->pkg & (1 << PKG_NOCRC_BIT))
 #define PKG_IS_INITRAMFS(e) ((e)->pkg & (1 << PKG_INITRAMFS_BIT))
+#define PKG_IS_ALT(e) ((e)->pkg & (1 << PKG_ALT_BIT))
 
 struct pkg_entry {
 	uint32_t pkg;		/* Type, Core, Kind, Src + Flags */

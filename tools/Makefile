@@ -150,6 +150,10 @@ HOSTCFLAGS_md5.o := -pedantic
 HOSTCFLAGS_sha1.o := -pedantic
 HOSTCFLAGS_sha256.o := -pedantic
 
+ifneq ($(CONFIG_RZN1),)
+subdir-$(CONFIG_RZN1) += rzn1
+endif
+
 # Don't build by default
 #hostprogs-$(CONFIG_PPC) += mpc86x_clk
 #HOSTCFLAGS_mpc86x_clk.o := -pedantic

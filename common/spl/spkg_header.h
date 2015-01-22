@@ -21,6 +21,12 @@
 #define INDEX_BLP_START		SPKG_HEADER_SIZE_ALL
 #define INDEX_IMAGE_START	(INDEX_BLP_START + SPKG_BLP_SIZE)
 
+/* Flags, not supported by ROM code, only used for U-Boot SPL */
+enum {
+	SPKG_CODE_NONSEC_BIT = 0,
+	SPKG_CODE_HYP_BIT,
+};
+
 struct spkg_file_header {
 	uint32_t 	signature;
 	uint8_t		version;

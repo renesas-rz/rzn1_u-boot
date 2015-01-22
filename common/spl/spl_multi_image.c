@@ -65,7 +65,7 @@ struct loaded_data_t {
 	struct pkg_entry *part;
 	u32 load_addr;
 	u32 entry_point;
-	u32 size;
+	u32 size, mapped;
 };
 
 /* indexed with PKGT_CORE_CA70/CA71/CM3 and PKGT_KIND_CODE/DTB/DATA */
@@ -149,6 +149,34 @@ static int cm3_runs_from_qspi(void)
 		return 0;
 
 	return 1;
+}
+
+/* Align on the next megabyte boundary */
+#define MAP_ALIGNEMNT	(16*1024*1024)
+
+/* if the code for a core is loaded, add size (and alignemnt, and a bit extra)
+ * to it's size, for relocating DTB, initramfs etc */
+static uint32_t
+reserve_core_range(
+	int core, uint32_t size)
+{
+	struct loaded_data_t *code =
+		&loaded_core[core][PKGT_KIND_CODE];
+	/* round load address to 4K */
+	uint32_t dest = (code->load_addr + code->size + code->mapped + (MAP_ALIGNEMNT-1)) &
+				~(MAP_ALIGNEMNT-1);
+
+	/* add at least 4KB, and round */
+	size = (size + 8192) & ~4095;
+
+	if (!code->load_addr)
+		return 0;
+
+	debug("%s core %d reserve %d at %08x\n", __func__, core, size, dest);
+
+	code->mapped += size;
+
+	return dest;
 }
 
 /* Load data from the flash specified by the table entry */
@@ -322,6 +350,29 @@ static int parse_spkg_header(struct spkg_file_header *h, struct loaded_data_t *i
 	info->entry_point = info->load_addr + h->execution_offset;
 	info->size = (h->payload_length >> 8) - SPKG_BLP_SIZE;
 
+	/* copy these flags bits to the package loader.
+	 * This is made so a signed package can force NONSEC/HYP and cannot
+	 * be overriden by just rewritting the unprotected table entry */
+	if (h->payload_length & (1 << SPKG_CODE_NONSEC_BIT))
+		info->part->pkg |= (1 << PKG_NONSEC_BIT);
+	if (h->payload_length & (1 << SPKG_CODE_HYP_BIT))
+		info->part->pkg |= (1 << PKG_HYP_BIT);
+
+	/* Initramfs/DTB with a zero load address means to load it just after
+	 * the code for that core, if it's available etc */
+	if ((PKG_IS_INITRAMFS(info->part) ||  PKG_KIND(info->part) == PKGT_KIND_DTB)
+			&& info->load_addr == 0) {
+		/* round */
+		uint32_t size = (info->size + 4095) & ~4095;
+
+		/* set our relocated address */
+		h->load_address = info->load_addr =
+			reserve_core_range(PKG_CORE(info->part), size);
+
+		/* not really needed as it's data, but adjust anyway */
+		info->entry_point += info->load_addr;
+	}
+
 	debug("%s: load addr 0x%x, size %d, exec addr 0x%x\n", __func__,
 	      info->load_addr, info->size, info->entry_point-info->load_addr);
 
@@ -355,6 +406,12 @@ static int load_rpkg_payload(struct loaded_data_t *part)
 
 void __weak ft_board_setup(void *blob, bd_t *bd) {}
 
+#ifdef CONFIG_ARMV7_NONSEC
+/* this is used by the secondary core bootstraper to know if it should
+ * kick off in HYP more or in plain NONSEC */
+extern int nonsec_and_hyp;
+#endif
+
 static void jump_to_image(
 	struct loaded_data_t *code,
 	struct loaded_data_t *dtb,
@@ -376,51 +433,100 @@ static void jump_to_image(
 		       code->entry_point);
 		return;
 	}
-	debug("%s %08x(%08x)\n", __func__,
-	      code->entry_point, dtb->load_addr);
 
 	spl_image.entry_point = code->entry_point;
 	spl_image.size = code->size;
 
 #ifdef CONFIG_SPL_LIBFDT_SUPPORT
-	/* make sure we got a bit more room to do stuff in that block */
-	fdt_open_into((void *)dtb->load_addr, (void *)dtb->load_addr,
-		      dtb->size + 4096);
+	if (dtb && dtb->load_addr && fdt_check_header((void *)dtb->load_addr) == 0) {
+		void * dtb_mapped = (void*)dtb->load_addr;
 
-	fdt_find_and_setprop((void *)dtb->load_addr,
-			     "/chosen", "rzn1,spl",
-			     &valid_addr, sizeof(valid_addr), 1);
-	if (PKG_IS_BACKUP(code->part)) {
-		fdt_find_and_setprop((void *)dtb->load_addr,
-				     "/chosen", "rzn1,backup",
+		debug("Original DTB is %d size for real\n",
+			fdt_totalsize(dtb_mapped));
+		if (dtb->size == 0)
+			dtb->size = fdt_totalsize(dtb_mapped);
+
+		/* if DTB is pointing to the QSPI mapping, it needs relocating */
+		if (dtb && addr_ok(dtb->load_addr, RZN1_V_QSPI_BASE, RZN1_V_QSPI_SIZE)) {
+			dtb_mapped = (void*)reserve_core_range(PKG_CORE(dtb->part),
+						dtb->size);
+		}
+		/* make sure we got a bit more room to do stuff in that block */
+		fdt_open_into((void*)dtb->load_addr, dtb_mapped,
+			      dtb->size + 4096);
+		dtb->load_addr = (uint32_t)dtb_mapped;
+
+		fdt_find_and_setprop(dtb_mapped,
+				     "/chosen", "rzn1,spl",
 				     &valid_addr, sizeof(valid_addr), 1);
-	}
-	fdt_fixup_memory((void *)dtb->load_addr,
-			 CONFIG_SYS_SDRAM_BASE, gd->ram_size);
+		if (PKG_IS_BACKUP(code->part)) {
+			fdt_find_and_setprop(dtb_mapped,
+					     "/chosen", "rzn1,backup",
+					     &valid_addr, sizeof(valid_addr), 1);
+		}
+		const char * boot_source = default_load_source == PKGT_SRC_QSPI ?
+					"qspi" : default_load_source == PKGT_SRC_NAND ?
+					"nand" : "unknown";
+		fdt_find_and_setprop(dtb_mapped,
+				     "/chosen/", "rzn1,boot-source",
+				     boot_source, strlen(boot_source) + 1, 1);
+		fdt_find_and_setprop(dtb_mapped,
+				     "/chosen", "rzn1,flash-offset",
+				     &code->part->offset,
+				     sizeof(code->part->offset), 1);
+		fdt_fixup_memory(dtb_mapped,
+				 CONFIG_SYS_SDRAM_BASE, gd->ram_size);
 
-	fdt_fixup_ethernet((void *)dtb->load_addr);
+		fdt_fixup_ethernet(dtb_mapped);
 
-	if (data && data->load_addr && PKG_IS_INITRAMFS(data->part)) {
-		fdt_initrd((void *)dtb->load_addr,
-			   data->load_addr, data->load_addr + data->size);
+		if (data && data->load_addr && PKG_IS_INITRAMFS(data->part)) {
+			fdt_initrd(dtb_mapped,
+				   data->load_addr, data->load_addr + data->size);
+		}
+	} else {
+		if (dtb && dtb->load_addr)
+			pkgt_msg(code->part, "Invalid DTB", 0);
+		dtb = NULL;
 	}
 #else
 #warning LIBDFDT is missing from SPL!
 #endif
+	debug("%s %08x(%08x)\n", __func__,
+	      code->entry_point, dtb->load_addr);
 
 	if (PKG_IS_NONSEC(code->part)) {
 #ifdef CONFIG_ARMV7_NONSEC
+		nonsec_and_hyp = !!PKG_IS_HYP(code->part);
+
+		/* Do not remove or move this line! */
+		flush_dcache_all();	/* Make sure that variable is flushed */
 #ifdef CONFIG_SPL_LIBFDT_SUPPORT
+		/* if we also want hyp mode, add it to the device tree */
+		if (nonsec_and_hyp)
+			fdt_find_and_setprop((void *)dtb->load_addr,
+					     "/chosen", "rzn1,hyp",
+					     &nonsec_and_hyp, sizeof(nonsec_and_hyp), 1);
 		ft_board_setup((void *)dtb->load_addr, NULL);
 #endif
+		/* Do not remove or move this line! */
 		flush_dcache_all();	/* flush cache before switching to Non-sec */
-		if (armv7_switch_nonsec() == 0)
+		if (armv7_switch_nonsec() == 0) {
 #ifdef CONFIG_ARMV7_VIRT
-			if (PKG_IS_HYP(code->part) && armv7_switch_hyp() == 0)
-				debug("entered HYP mode\n");
+			if (nonsec_and_hyp) {
+				if (armv7_switch_hyp() == 0)
+					debug("entered HYP mode\n");
+				else
+					pkgt_msg(code->part, "HYP switch failed", 0);
+			}
 #else
+			/* Use a '1' we already have */
+			fdt_find_and_setprop((void *)dtb->load_addr,
+					     "/chosen", "rzn1,nonsec",
+					    &valid_addr, sizeof(valid_addr), 1);
 			debug("entered non-secure state\n");
 #endif
+		} else
+			pkgt_msg(code->part, "NONSEC switch failed", 0);
 #else
 		pkgt_msg(code->part, "NONSEC/HYP not compiled in", 0);
 #endif
@@ -508,11 +614,6 @@ static int load_spkg(
 		pkgt_msg(entry, "Invalid SPKG header", 1);
 		return -3;
 	}
-	/* Initramfs with a zero offset means to load it just after
-	 * the code for that core, if it's available etc */
-	if (PKG_IS_INITRAMFS(entry) && entry->offset == 0) {
-		/* TODO */
-	}
 	/* Check that CM3 images are at the correct place */
 	if (PKG_CORE(entry) == PKGT_CORE_CM3 &&
 	    (part->load_addr != RZN1_SRAM_ID_BASE ||
@@ -538,9 +639,97 @@ static int load_spkg(
 			pkgt_msg(entry, "Invalid SPKG payload CRC", 1);
 			return -6;
 		}
-		debug("SPL: CRC Matched\n");
 	}
 	return 0;
+}
+
+static int load_rpkgt_entry(
+	struct pkg_table *table,
+	struct pkg_entry *entry,
+	int verify, int alt_loading)
+{
+	struct loaded_data_t *part = NULL;
+	uint8_t type = PKG_TYPE(entry);
+	uint8_t core = PKG_CORE(entry);
+	uint8_t kind = PKG_KIND(entry);
+	uint8_t src = PKG_SRC(entry);
+	int ret = 0;
+
+	if (core > PKGT_CORE_CM3) {
+		pkgt_msg(entry, "Unsupported cpu index", 0);
+		return -1;
+	}
+	if (kind > PKGT_KIND_DATA) {
+		pkgt_msg(entry, "Unsupported package kind", 0);
+		return -2;
+	}
+	if (src == PKGT_SRC_SAME)
+		PKG_SET_SRC(entry, default_load_source);
+
+	printf("SPL: %s %s %s in %s at 0x%x%s%s%s%s%s%s\n",
+		pkg_core[core], pkg_kind[kind],
+		pkg_type[type], pkg_src[src],
+		entry->offset,
+		PKG_IS_BACKUP(entry) ? " Backup" : "",
+		PKG_IS_ALT(entry) ? " ALT" : "",
+		PKG_IS_NOCRC(entry) ? " NOCRC" : "",
+		PKG_IS_INITRAMFS(entry) ? " Initramfs" : "",
+		PKG_IS_NONSEC(entry) ? " NONSEC" : "",
+		PKG_IS_HYP(entry) ? "+HYP" : "");
+
+	part = &loaded_core[core][kind];
+	if (part->part && PKG_IS_BACKUP(entry)) {
+		/* This part was already loaded, and the one
+		 * we are looking at is a backup, so we can
+		 * safely skip it */
+		return 1;
+	}
+	if (!!alt_loading != !!PKG_IS_ALT(entry)) {
+		return 2;
+	}
+	if (part->load_addr) {
+		debug("part already loaded\n");
+		return 3;
+	}
+	part->part = entry;
+
+	if (type == PKGT_TYPE_UIMAGE) {
+		if (verify) {
+			pkgt_msg(entry, "Secure mode cannot load uImage", 0);
+			return -3;
+		}
+		switch (PKG_SRC(entry)) {
+		case PKGT_SRC_QSPI:
+#if defined(CONFIG_SPL_SPI_LOAD)
+			spl_spi_load_one_uimage(flash, entry->offset);
+#endif
+			break;
+		case PKGT_SRC_NAND:
+#if defined(CONFIG_SPL_NAND_LOAD)
+			if (!nand_inited) {
+				spl_nand_load_init();
+				nand_inited = 1;
+			}
+			spl_nand_load_one_uimage(entry->offset);
+#endif
+			break;
+		}
+		part->load_addr = spl_image.load_addr;
+		part->entry_point = spl_image.entry_point;
+		part->size = spl_image.size;
+	} else if (type == PKGT_TYPE_RPKG) {
+		ret = load_rpkg(part, verify);
+	} else if (type == PKGT_TYPE_SPKG) {
+		ret = load_spkg(part, verify);
+	} else if (type == PKGT_TYPE_RAW) {
+		part->load_addr = entry->offset;
+		part->entry_point = entry->offset;
+		part->size = 0;
+	} else {
+		pkgt_msg(entry, "Unsupported pkg type", 0);
+		ret = -1;
+	}
+	return ret;
 }
 
 int spl_start_uboot(void);
@@ -557,7 +746,7 @@ void __noreturn spl_load_multi_images(void)
 	int i, nr_entries, retries_count = PKGT_REDUNDANCY_COUNT;
 	uint32_t table_offset = 0x10000;
 	int boot_device = spl_boot_device();
-	int alt_loading = spl_start_uboot();
+	int alt_loading = 0;
 
 	/* Ethernet MACS will need the environment */
 #if defined(CONFIG_SPL_ENV_SUPPORT)
@@ -581,7 +770,7 @@ void __noreturn spl_load_multi_images(void)
 	}
 
 #if defined(RZN1_FORCE_VERIFY_USING_BOOTROM)
-	/* TODO: Forcing verify=1 as it can't be set on SCIT */
+	/* Force the BootROM to verify the image, used for testing */
 	verify = 1;
 #endif
 #endif
@@ -688,92 +877,11 @@ void __noreturn spl_load_multi_images(void)
 			printf("U-Boot SPL: Error: PKG Table does not have any entries!\n");
 			continue;
 		}
+
+		alt_loading = spl_start_uboot();
 		for (i = 0; i < nr_entries; i++) {
-			struct pkg_entry *entry = &table->entries[i];
-			struct loaded_data_t *part = NULL;
-			int ret = 0;
-			uint8_t type = PKG_TYPE(entry);
-			uint8_t core = PKG_CORE(entry);
-			uint8_t kind = PKG_KIND(entry);
-			uint8_t src = PKG_SRC(entry);
-
-			if (core > PKGT_CORE_CM3) {
-				pkgt_msg(entry, "Unsupported cpu index", 0);
-				continue;
-			}
-			if (kind > PKGT_KIND_DATA) {
-				pkgt_msg(entry, "Unsupported package kind", 0);
-				continue;
-			}
-			if (src == PKGT_SRC_SAME)
-				PKG_SET_SRC(entry, default_load_source);
-
-			printf("SPL: %d/%d: %s %s %s in %s at 0x%x%s%s%s%s%s%s\n",
-			       i + 1, nr_entries,
-				pkg_core[core], pkg_kind[kind],
-				pkg_type[type], pkg_src[src],
-				entry->offset,
-				PKG_IS_BACKUP(entry) ? " Backup" : "",
-				PKG_IS_ALT(entry) ? " ALT" : "",
-				PKG_IS_NOCRC(entry) ? " NOCRC" : "",
-				PKG_IS_INITRAMFS(entry) ? " Initramfs" : "",
-				PKG_IS_NONSEC(entry) ? " NONSEC" : "",
-				PKG_IS_HYP(entry) ? "+HYP" : "");
-
-			part = &loaded_core[core][kind];
-			if (part->part && PKG_IS_BACKUP(entry)) {
-				/* This part was already loaded, and the one
-				 * we are looking at is a backup, so we can
-				 * safely skip it */
-				continue;
-			}
-			if (!!alt_loading != !!PKG_IS_ALT(entry)) {
-				continue;
-			}
-			if (part->load_addr) {
-				debug("part already loaded\n");
-				continue;
-			}
-			part->part = entry;
-
-			if (type == PKGT_TYPE_UIMAGE) {
-				if (verify) {
-					pkgt_msg(entry, "Secure mode cannot load uImage", 0);
-					continue;
-				}
-				switch (PKG_SRC(entry)) {
-				case PKGT_SRC_QSPI:
-#if defined(CONFIG_SPL_SPI_LOAD)
-					spl_spi_load_one_uimage(flash, entry->offset);
-#endif
-					break;
-				case PKGT_SRC_NAND:
-#if defined(CONFIG_SPL_NAND_LOAD)
-					if (!nand_inited) {
-						spl_nand_load_init();
-						nand_inited = 1;
-					}
-					spl_nand_load_one_uimage(entry->offset);
-#endif
-					break;
-				}
-				part->load_addr = spl_image.load_addr;
-				part->entry_point = spl_image.entry_point;
-				part->size = spl_image.size;
-			} else if (type == PKGT_TYPE_RPKG) {
-				ret = load_rpkg(part, verify);
-			} else if (type == PKGT_TYPE_SPKG) {
-				ret = load_spkg(part, verify);
-			} else if (type == PKGT_TYPE_RAW) {
-				part->load_addr = entry->offset;
-				part->entry_point = entry->offset;
-				part->size = 0;
-			} else {
-				pkgt_msg(entry, "Unsupported pkg type", 0);
-				ret = -1;
-			}
-			if (ret)
-				continue;
+			load_rpkgt_entry(table,
+					&table->entries[i], verify, alt_loading);
 		}
 		break;/* we handled a valid table already, bail */
 	}
