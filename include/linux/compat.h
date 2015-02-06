@@ -9,7 +9,11 @@
 	debug(fmt, ##args)
 #define dev_info(dev, fmt, args...)		\
 	printf(fmt, ##args)
+#define dev_warn(dev, fmt, args...)		\
+	printf(fmt, ##args)
 #define dev_err(dev, fmt, args...)		\
+	printf(fmt, ##args)
+#define dev_crit(dev, fmt, args...)		\
 	printf(fmt, ##args)
 #define printk	printf
 
@@ -22,11 +26,15 @@
 #define KERN_INFO
 #define KERN_DEBUG
 
+#define GFP_KERNEL 0
+
 #define kmalloc(size, flags)	malloc(size)
 #define kzalloc(size, flags)	calloc(size, 1)
 #define vmalloc(size)		malloc(size)
 #define kfree(ptr)		free(ptr)
 #define vfree(ptr)		free(ptr)
+
+#define devm_kzalloc(dev, size, flags)	calloc(size, 1)
 
 #define DECLARE_WAITQUEUE(...)	do { } while (0)
 #define add_wait_queue(...)	do { } while (0)
@@ -57,4 +65,7 @@
 				  , __FILE__, __LINE__); }
 
 #define PAGE_SIZE	4096
+
+#define __init
+
 #endif
