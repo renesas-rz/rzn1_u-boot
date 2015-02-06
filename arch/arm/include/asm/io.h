@@ -283,6 +283,13 @@ extern inline void __raw_readsl(unsigned long addr, void *data, int longlen)
 #define insw_p(port,to,len)		insw(port,to,len)
 #define insl_p(port,to,len)		insl(port,to,len)
 
+#define ioread8(x)			readb(x)
+#define ioread16(x)			readw(x)
+#define ioread32(x)			readl(x)
+#define iowrite8(val, x)		writeb(val, x)
+#define iowrite16(val, x)		writew(val, x)
+#define iowrite32(val, x)		writel(val, x)
+
 /*
  * ioremap and friends.
  *
