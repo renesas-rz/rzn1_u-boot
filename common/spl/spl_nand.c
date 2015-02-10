@@ -10,9 +10,32 @@
 #include <asm/io.h>
 #include <nand.h>
 
+void spl_nand_load_init(void)
+{
+	nand_init();
+}
+
+/*
+ * When reading data from a NAND Flash device, the minimum we can read is a
+ * page. SPL will be able to load multiple images to arbitrary locations, so
+ * we cannot make any assumptions about what areas are available to use.
+ * Therefore, we need storage inside the SPL image.
+ */
+u32 nand_page[8192/4];
+
+void spl_nand_load_one_uimage(u32 offset)
+{
+	struct image_header *header = (struct image_header *)nand_page;
+
+	nand_spl_load_image(offset, sizeof(*header), (void *)header);
+	spl_parse_image_header(header);
+	nand_spl_load_image(offset + sizeof(*header),
+			    spl_image.size, (void *)spl_image.load_addr);
+}
+
 void spl_nand_load_image(void)
 {
-	struct image_header *header;
+	struct image_header *header __attribute__((unused));
 	int *src __attribute__((unused));
 	int *dst __attribute__((unused));
 
@@ -75,10 +98,6 @@ void spl_nand_load_image(void)
 #endif
 #endif
 	/* Load u-boot */
-	nand_spl_load_image(CONFIG_SYS_NAND_U_BOOT_OFFS,
-		sizeof(*header), (void *)header);
-	spl_parse_image_header(header);
-	nand_spl_load_image(CONFIG_SYS_NAND_U_BOOT_OFFS + sizeof(*header),
-		spl_image.size, (void *)spl_image.load_addr);
+	spl_nand_load_one_uimage(CONFIG_SYS_NAND_U_BOOT_OFFS);
 	nand_deselect();
 }
