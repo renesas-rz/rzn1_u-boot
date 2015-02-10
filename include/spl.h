@@ -43,6 +43,8 @@ void spl_display_print(void);
 
 /* NAND SPL functions */
 void spl_nand_load_image(void);
+void spl_nand_load_init(void);
+void spl_nand_load_one_uimage(u32 offset);
 
 /* OneNAND SPL functions */
 void spl_onenand_load_image(void);
