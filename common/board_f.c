@@ -611,6 +611,20 @@ static int reserve_stacks(void)
 #  endif
 	/* leave 3 words for abort-stack, plus 1 for alignment */
 	gd->start_addr_sp -= 16;
+
+#ifndef CONFIG_USE_IRQ
+	/* Make sure the exception vector has some space to
+	 * save stuff into ! This is MANDATORY to get a proper
+	 * stack trace debug when getting a data abort.
+	 * The default value for that pointer is 0xbadc0de and
+	 * that obviously isn't terribly useful.
+	 * Note that this enclosing function seems to be allocating
+	 * IRQ and/or exceptions around already, but for all appearances
+	 * it's not 1) enough and 2) even used, thus this 2 lines */
+	gd->start_addr_sp -= 128;
+	IRQ_STACK_START_IN = gd->irq_sp;
+#endif
+
 # elif defined(CONFIG_PPC)
 	/* Clear initial stack frame */
 	s = (ulong *) gd->start_addr_sp;
