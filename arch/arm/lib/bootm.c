@@ -30,6 +30,7 @@ DECLARE_GLOBAL_DATA_PTR;
 
 static struct tag *params;
 
+#if !defined(CONFIG_SYS_STAY_IN_SRAM)
 static ulong get_sp(void)
 {
 	ulong ret;
@@ -59,6 +60,7 @@ void arch_lmb_reserve(struct lmb *lmb)
 	lmb_reserve(lmb, sp,
 		    gd->bd->bi_dram[0].start + gd->bd->bi_dram[0].size - sp);
 }
+#endif
 
 /**
  * announce_and_cleanup() - Print message and prepare for kernel boot
