@@ -42,19 +42,9 @@ static int spi_load_image_os(struct spi_flash *flash,
 }
 #endif
 
-/*
- * The main entry for SPI booting. It's necessary that SDRAM is already
- * configured and available since this code loads the main U-Boot image
- * from SPI into SDRAM and starts it from there.
- */
-void spl_spi_load_image(void)
+struct spi_flash *spl_spi_probe(void)
 {
 	struct spi_flash *flash;
-	struct image_header *header;
-
-	/*
-	 * Load U-Boot image from SPI flash into RAM
-	 */
 
 	flash = spi_flash_probe(CONFIG_SPL_SPI_BUS, CONFIG_SPL_SPI_CS,
 				CONFIG_SF_DEFAULT_SPEED, SPI_MODE_3);
@@ -63,18 +53,41 @@ void spl_spi_load_image(void)
 		hang();
 	}
 
-	/* use CONFIG_SYS_TEXT_BASE as temporary storage area */
-	header = (struct image_header *)(CONFIG_SYS_TEXT_BASE);
+	return flash;
+}
+
+void spl_spi_load_one_uimage(struct spi_flash *flash, u32 offset)
+{
+	struct image_header header_stack;
+	struct image_header *header = &header_stack;
+
+	/* Load u-boot, mkimage header is 64 bytes. */
+	spi_flash_read(flash, offset, sizeof(*header),
+		       (void *)header);
+	spl_parse_image_header(header);
+	spi_flash_read(flash, offset + sizeof(*header),
+		       spl_image.size, (void *)spl_image.load_addr);
+}
+
+/*
+ * The main entry for SPI booting. It's necessary that SDRAM is already
+ * configured and available since this code loads the main U-Boot image
+ * from SPI into SDRAM and starts it from there.
+ */
+void spl_spi_load_image(void)
+{
+	struct spi_flash *flash;
+
+	/*
+	 * Load U-Boot image from SPI flash into RAM
+	 */
+
+	flash = spl_spi_probe();
 
 #ifdef CONFIG_SPL_OS_BOOT
 	if (spl_start_uboot() || spi_load_image_os(flash, header))
 #endif
 	{
-		/* Load u-boot, mkimage header is 64 bytes. */
-		spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS, sizeof(*header),
-			       (void *)header);
-		spl_parse_image_header(header);
-		spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS + sizeof(*header),
-			       spl_image.size, (void *)spl_image.load_addr);
+		spl_spi_load_one_uimage(flash, CONFIG_SYS_SPI_U_BOOT_OFFS);
 	}
 }

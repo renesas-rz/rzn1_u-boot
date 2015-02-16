@@ -58,6 +58,8 @@ void spl_ymodem_load_image(void);
 
 /* SPI SPL functions */
 void spl_spi_load_image(void);
+struct spi_flash *spl_spi_probe(void);
+void spl_spi_load_one_uimage(struct spi_flash *flash, u32 offset);
 
 /* Ethernet SPL functions */
 void spl_net_load_image(const char *device);
