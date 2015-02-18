@@ -115,6 +115,19 @@ ENDPROC(save_boot_params)
  *
  *************************************************************************/
 ENTRY(cpu_init_cp15)
+#if defined(CONFIG_CORTEX_A7)
+	/* Cortex A7 needs SMP bit setting before enabling the MMU/caches */
+	mrc	p15, 0, r0, c1, c0, 0
+	bic	r0, r0, #0x00000007	@ clear bits 2:0 (-CAM)
+	bic	r0, r0, #0x00000800	@ clear bit 11 (Z---) BTB
+	bic	r0, r0, #0x00001000	@ clear bit 12 (I) I-cache
+	mcr	p15, 0, r0, c1, c0, 0
+
+	mrc	p15, 0, r0, c1, c0, 1
+	orr	r0, r0, #0x00000040	@ set SMP bit
+	mcr	p15, 0, r0, c1, c0, 1
+#endif
+
 	/*
 	 * Invalidate L1 I/D
 	 */
