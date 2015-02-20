@@ -445,8 +445,8 @@ static int reserve_mmu(void)
 	gd->arch.tlb_size = PGTABLE_SIZE;
 	gd->relocaddr -= gd->arch.tlb_size;
 
-	/* round down to next 64 kB limit */
-	gd->relocaddr &= ~(0x10000 - 1);
+	/* round down to ensure alignment */
+	gd->relocaddr &= ~(PGTABLE_SIZE - 1);
 
 	gd->arch.tlb_addr = gd->relocaddr;
 	debug("TLB table from %08lx to %08lx\n", gd->arch.tlb_addr,
