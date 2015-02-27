@@ -71,10 +71,10 @@ void spl_spi_load_image(void)
 #endif
 	{
 		/* Load u-boot, mkimage header is 64 bytes. */
-		spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS, 0x40,
+		spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS, sizeof(*header),
 			       (void *)header);
 		spl_parse_image_header(header);
-		spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS,
+		spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS + sizeof(*header),
 			       spl_image.size, (void *)spl_image.load_addr);
 	}
 }
