@@ -78,7 +78,7 @@ void spl_nand_load_image(void)
 	nand_spl_load_image(CONFIG_SYS_NAND_U_BOOT_OFFS,
 		sizeof(*header), (void *)header);
 	spl_parse_image_header(header);
-	nand_spl_load_image(CONFIG_SYS_NAND_U_BOOT_OFFS,
+	nand_spl_load_image(CONFIG_SYS_NAND_U_BOOT_OFFS + sizeof(*header),
 		spl_image.size, (void *)spl_image.load_addr);
 	nand_deselect();
 }
