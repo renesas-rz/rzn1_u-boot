@@ -72,8 +72,16 @@ static unsigned long dfu_buf_size = CONFIG_SYS_DFU_DATA_BUF_SIZE;
 
 unsigned char *dfu_free_buf(void)
 {
+/* If the DFU buffer size is significantly big compared to the heap size, the
+ * allocation of the buffer works only once due the the simplificed malloc.
+ * The second time it can't allocate the contiguous memory for it. This define
+ * here force the DFU to /keep/ the buffer around if it had been allocated
+ * already.
+ */
+#ifndef CONFIG_SYS_DFU_HOARD_BUFFER
 	free(dfu_buf);
 	dfu_buf = NULL;
+#endif
 	return dfu_buf;
 }
 
