@@ -135,6 +135,10 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 	spl_board_init();
 #endif
 
+#ifdef CONFIG_SPL_MULTIIMAGE
+	spl_load_multi_images();
+#endif
+
 	boot_device = spl_boot_device();
 	debug("boot device - %d\n", boot_device);
 	switch (boot_device) {

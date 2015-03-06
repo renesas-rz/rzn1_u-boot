@@ -40,6 +40,8 @@ void spl_board_prepare_for_linux(void);
 void __noreturn jump_to_image_linux(void *arg);
 int spl_start_uboot(void);
 void spl_display_print(void);
+void spl_load_multi_images(void);
+void __noreturn jump_to_image_no_args(struct spl_image_info *spl_image);
 
 /* NAND SPL functions */
 void spl_nand_load_image(void);
