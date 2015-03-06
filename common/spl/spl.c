@@ -120,7 +120,9 @@ static void spl_ram_load_image(void)
 
 void board_init_r(gd_t *dummy1, ulong dummy2)
 {
+#ifndef CONFIG_SPL_MULTIIMAGE
 	u32 boot_device;
+#endif
 	debug(">>spl:board_init_r()\n");
 
 #ifdef CONFIG_SYS_SPL_MALLOC_START
@@ -139,6 +141,10 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 #ifdef CONFIG_SPL_BOARD_INIT
 	spl_board_init();
 #endif
+
+#ifdef CONFIG_SPL_MULTIIMAGE
+	spl_load_multi_images();
+#else /* CONFIG_SPL_MULTIIMAGE */
 
 	boot_device = spl_boot_device();
 	debug("boot device - %d\n", boot_device);
@@ -223,6 +229,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 		debug("Unsupported OS image.. Jumping nevertheless..\n");
 	}
 	jump_to_image_no_args(&spl_image);
+#endif /* CONFIG_SPL_MULTIIMAGE */
 }
 
 /*
