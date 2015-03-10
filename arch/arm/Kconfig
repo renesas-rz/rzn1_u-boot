@@ -144,6 +144,14 @@ config USE_ARCH_MEMSET
 	  Such implementation may be faster under some conditions
 	  but may increase the binary size.
 
+config SPL_USE_ARCH_MEMCPY
+	bool "Use an assembly optimized implementation of memcpy for SPL"
+	default n
+
+config SPL_USE_ARCH_MEMSET
+	bool "Use an assembly optimized implementation of memcset for SPL"
+	default n
+
 config ARCH_OMAP2
 	bool
 	select CPU_V7
