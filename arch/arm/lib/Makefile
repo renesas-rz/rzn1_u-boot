@@ -31,6 +31,8 @@ obj-$(CONFIG_USE_ARCH_MEMSET) += memset.o
 obj-$(CONFIG_USE_ARCH_MEMCPY) += memcpy.o
 else
 obj-$(CONFIG_SPL_FRAMEWORK) += spl.o
+obj-$(CONFIG_USE_ARCH_MEMSET) += memset.o
+obj-$(CONFIG_USE_ARCH_MEMCPY) += memcpy.o
 endif
 obj-$(CONFIG_SEMIHOSTING) += semihosting.o
 
