@@ -67,6 +67,13 @@ config USB_GADGET_DWC2_OTG_PHY_BUS_WIDTH_8
 
 endif # USB_GADGET_DWC2_OTG
 
+config USB_GADGET_RZN1
+	bool "Renesas RZ/N1 USB gadget controller"
+	select USB_GADGET_DUALSPEED
+	help
+	  Say Y here to enable gadget controller functionality of the
+	  Renesas driver.
+
 config CI_UDC
 	bool "ChipIdea device controller"
 	select USB_GADGET_DUALSPEED
