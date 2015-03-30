@@ -267,7 +267,6 @@ static int dfu_read_buffer_fill(struct dfu_entity *dfu, void *buf, int size)
 
 			dfu->i_buf += chunk;
 			dfu->b_left -= chunk;
-			dfu->r_left -= chunk;
 			size -= chunk;
 			buf += chunk;
 			readn += chunk;
