@@ -316,6 +316,7 @@ int dfu_read(struct dfu_entity *dfu, void *buf, int size, int blk_seq_num)
 	       __func__, dfu->name, buf, size, blk_seq_num, dfu->i_buf);
 
 	if (!dfu->inited) {
+		dfu->r_left = 0;
 		dfu->i_buf_start = dfu_get_buf();
 		if (dfu->i_buf_start == NULL)
 			return -ENOMEM;

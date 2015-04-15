@@ -426,6 +426,7 @@ static int state_dfu_dnload_idle(struct f_dfu *f_dfu,
 	u16 w_value = le16_to_cpu(ctrl->wValue);
 	u16 len = le16_to_cpu(ctrl->wLength);
 	int value = 0;
+	struct dfu_entity *dfu = dfu_get_entity(f_dfu->altsetting);
 
 	switch (ctrl->bRequest) {
 	case USB_REQ_DFU_DNLOAD:
@@ -435,6 +436,7 @@ static int state_dfu_dnload_idle(struct f_dfu *f_dfu,
 		break;
 	case USB_REQ_DFU_ABORT:
 		f_dfu->dfu_state = DFU_STATE_dfuIDLE;
+		dfu->inited = 0;
 		value = RET_ZLP;
 		break;
 	case USB_REQ_DFU_GETSTATUS:
@@ -516,6 +518,7 @@ static int state_dfu_upload_idle(struct f_dfu *f_dfu,
 	u16 w_value = le16_to_cpu(ctrl->wValue);
 	u16 len = le16_to_cpu(ctrl->wLength);
 	int value = 0;
+	struct dfu_entity *dfu = dfu_get_entity(f_dfu->altsetting);
 
 	switch (ctrl->bRequest) {
 	case USB_REQ_DFU_UPLOAD:
@@ -527,6 +530,7 @@ static int state_dfu_upload_idle(struct f_dfu *f_dfu,
 		break;
 	case USB_REQ_DFU_ABORT:
 		f_dfu->dfu_state = DFU_STATE_dfuIDLE;
+		dfu->inited = 0;
 		/* no zlp? */
 		value = RET_ZLP;
 		break;
