@@ -757,12 +757,14 @@ static void dfu_unbind(struct usb_configuration *c, struct usb_function *f)
 static int dfu_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_dfu *f_dfu = func_to_dfu(f);
+	struct dfu_entity *dfu = dfu_get_entity(f_dfu->altsetting);
 
 	debug("%s: intf:%d alt:%d\n", __func__, intf, alt);
 
 	f_dfu->altsetting = alt;
 	f_dfu->dfu_state = DFU_STATE_dfuIDLE;
 	f_dfu->dfu_status = DFU_STATUS_OK;
+	dfu->inited = 0;
 
 	return 0;
 }
