@@ -483,8 +483,7 @@ int dfu_config_entities(char *env, char *interface, int num)
 		list_add_tail(&dfu[i].list, &dfu_list);
 		alt_num_cnt++;
 	}
-
-	return 0;
+	return alt_num_cnt > 0 ? 0 : -1;
 }
 
 const char *dfu_get_dev_type(enum dfu_device_type t)
