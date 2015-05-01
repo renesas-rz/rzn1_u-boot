@@ -58,7 +58,12 @@ int dfu_fill_entity_ram(struct dfu_entity *dfu, char *s)
 
 	dfu->dev_type = DFU_DEV_RAM;
 	st = strsep(&s, " ");
+#ifdef CONFIG_CMD_DFU_EXT
+	/* this is for consistency sake with other devices that use 'raw' */
+	if (strcmp(st, "ram") && strcmp(st, "raw")) {
+#else
 	if (strcmp(st, "ram")) {
+#endif
 		error("unsupported device: %s\n", st);
 		return -ENODEV;
 	}
