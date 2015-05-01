@@ -104,7 +104,9 @@ struct dfu_entity {
 
 	int (*flush_medium)(struct dfu_entity *dfu);
 	unsigned int (*poll_timeout)(struct dfu_entity *dfu);
-
+#ifdef DFU_EXT_INFO
+	void (*free)(struct dfu_entity *dfu);
+#endif
 	struct list_head list;
 
 	/* on the fly state */

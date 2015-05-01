@@ -17,6 +17,12 @@
 #include <linux/list.h>
 #include <linux/compiler.h>
 
+#ifdef DFU_EXT_INFO
+#define DFU_INFO_NAME "dfu_ext_info"
+#else
+#define DFU_INFO_NAME "dfu_alt_info"
+#endif
+
 static bool dfu_reset_request;
 static LIST_HEAD(dfu_list);
 static int dfu_alt_num;
@@ -50,9 +56,9 @@ int dfu_init_env_entities(char *interface, int dev)
 	char *env_bkp;
 	int ret;
 
-	str_env = getenv("dfu_alt_info");
+	str_env = getenv(DFU_INFO_NAME);
 	if (!str_env) {
-		error("\"dfu_alt_info\" env variable not defined!\n");
+		error("\"" DFU_INFO_NAME "\" env variable not defined!\n");
 		return -EINVAL;
 	}
 
@@ -414,6 +420,10 @@ void dfu_free_entities(void)
 	struct dfu_entity *dfu, *p, *t = NULL;
 
 	list_for_each_entry_safe_reverse(dfu, p, &dfu_list, list) {
+#ifdef DFU_EXT_INFO
+		if (dfu->free)
+			dfu->free(dfu);
+#endif
 		list_del(&dfu->list);
 		t = dfu;
 	}
@@ -447,10 +457,29 @@ int dfu_config_entities(char *env, char *interface, int num)
 	for (i = 0; i < dfu_alt_num; i++) {
 
 		s = strsep(&env, ";");
+#ifdef DFU_EXT_INFO
+		{
+			char *drv = strsep(&s, " ");
+			char *tmp = drv;
+			char *root = strsep(&tmp, ":");
+			if (tmp) {
+				num = simple_strtol(tmp, NULL, 10);
+				interface = root;
+			} else {
+				num = 0;
+				interface = drv;
+			}
+			debug("%s interface %s:%d, remains:%s\n", __func__,
+				interface, num, s);
+		}
+#endif
 		ret = dfu_fill_entity(&dfu[i], s, alt_num_cnt, interface, num);
 		if (ret)
+#ifdef DFU_EXT_INFO
+			continue; /* it's OK for a probe to fail */
+#else
 			return -1;
-
+#endif
 		list_add_tail(&dfu[i].list, &dfu_list);
 		alt_num_cnt++;
 	}
