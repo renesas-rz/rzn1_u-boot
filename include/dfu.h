@@ -21,6 +21,7 @@ enum dfu_device_type {
 	DFU_DEV_ONENAND,
 	DFU_DEV_NAND,
 	DFU_DEV_RAM,
+	DFU_DEV_FLASH,
 };
 
 enum dfu_layout {
@@ -62,6 +63,28 @@ struct nand_internal_data {
 	unsigned int ubi;
 };
 
+struct dfu_spi_eraseblock {
+	struct spi_flash *flash;
+	u64 size;
+	u64 offset;
+	u16 state;
+	u16 uses;
+	uint8_t buf[]; /* be SURE this is 4 bytes aligned */
+};
+
+struct spi_internal_data {
+	struct list_head list;
+	struct spi_flash *flash;
+	/* current buffer erase block state */
+	struct dfu_spi_eraseblock *eb;
+	/* RAW programming */
+	u64 start;
+	u64 size;
+
+	unsigned int dev;
+	unsigned int cs;
+};
+
 struct ram_internal_data {
 	void		*start;
 	unsigned int	size;
@@ -93,6 +116,7 @@ struct dfu_entity {
 	union {
 		struct mmc_internal_data mmc;
 		struct nand_internal_data nand;
+		struct spi_internal_data spi;
 		struct ram_internal_data ram;
 	} data;
 
@@ -160,6 +184,16 @@ extern int dfu_fill_entity_nand(struct dfu_entity *dfu, char *s);
 static inline int dfu_fill_entity_nand(struct dfu_entity *dfu, char *s)
 {
 	puts("NAND support not available!\n");
+	return -1;
+}
+#endif
+
+#ifdef CONFIG_DFU_SPI
+extern int dfu_fill_entity_spi(struct dfu_entity *dfu, char *s);
+#else
+static inline int dfu_fill_entity_spi(struct dfu_entity *dfu, char *s)
+{
+	puts("FLASH support not available!\n");
 	return -1;
 }
 #endif

@@ -8,4 +8,5 @@
 obj-$(CONFIG_DFU_FUNCTION) += dfu.o
 obj-$(CONFIG_DFU_MMC) += dfu_mmc.o
 obj-$(CONFIG_DFU_NAND) += dfu_nand.o
+obj-$(CONFIG_DFU_SPI) += dfu_spi.o
 obj-$(CONFIG_DFU_RAM) += dfu_ram.o
