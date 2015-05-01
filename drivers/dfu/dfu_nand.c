@@ -27,8 +27,8 @@ static int nand_block_op(enum dfu_op op, struct dfu_entity *dfu,
 	int ret;
 	nand_info_t *nand;
 
-	/* if buf == NULL return total size of the area */
-	if (buf == NULL) {
+	/* if *len is 0, return total size of the area */
+	if (*len == 0) {
 		*len = dfu->data.nand.size;
 		return 0;
 	}
@@ -121,7 +121,6 @@ static int dfu_read_medium_nand(struct dfu_entity *dfu, u64 offset, void *buf,
 
 	switch (dfu->layout) {
 	case DFU_RAW_ADDR:
-		*len = dfu->data.nand.size;
 		ret = nand_block_read(dfu, offset, buf, len);
 		break;
 	default:
