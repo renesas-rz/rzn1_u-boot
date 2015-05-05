@@ -204,6 +204,17 @@ int dfu_fill_entity_nand(struct dfu_entity *dfu, char *devstr, char *s)
 		dfu->data.nand.start = simple_strtoul(s, &s, 16);
 		s++;
 		dfu->data.nand.size = simple_strtoul(s, &s, 16);
+		if (dfu->data.nand.size == 0) {
+			struct mtd_info *mtd = current_nand(nand_curr_device);
+
+			if (IS_ERR(mtd))
+				return -1;
+
+			mtd = nand_info[nand_curr_device];
+			dfu->data.nand.size = mtd->size - dfu->data.nand.start;
+			debug("DFU:%s calculated size is 0x%llx bytes\n",
+				dfu->name, dfu->data.nand.size);
+		}
 	} else if ((!strcmp(st, "part")) || (!strcmp(st, "partubi"))) {
 		char mtd_id[32];
 		struct mtd_device *mtd_dev;
