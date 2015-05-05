@@ -187,6 +187,21 @@ int dfu_fill_entity_nand(struct dfu_entity *dfu, char *s)
 		dfu->data.nand.start = simple_strtoul(s, &s, 16);
 		s++;
 		dfu->data.nand.size = simple_strtoul(s, &s, 16);
+		if (dfu->data.nand.size == 0) {
+			nand_info_t *nand;
+
+			if (nand_curr_device < 0 ||
+			    nand_curr_device >= CONFIG_SYS_MAX_NAND_DEVICE ||
+			    !nand_info[nand_curr_device].name) {
+				printf("%s: invalid nand device\n", __func__);
+				return -1;
+			}
+
+			nand = &nand_info[nand_curr_device];
+			dfu->data.nand.size = nand->size - dfu->data.nand.start;
+			printf("%s:%s calculated size is %lx\n", __func__,
+				dfu->name, (long)dfu->data.nand.size);
+		}
 	} else if ((!strcmp(st, "part")) || (!strcmp(st, "partubi"))) {
 		char mtd_id[32];
 		struct mtd_device *mtd_dev;
