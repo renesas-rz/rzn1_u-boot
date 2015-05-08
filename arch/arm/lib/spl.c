@@ -30,6 +30,7 @@ void __weak board_init_f(ulong dummy)
 
 	/* Set global data pointer. */
 	gd = &gdata;
+	gd->start_addr_sp = (unsigned long)&dummy;
 
 	board_init_r(NULL, 0);
 }
