@@ -389,7 +389,7 @@ static void nand_print_and_set_info(int idx)
 	nand_info_t *nand = &nand_info[idx];
 	struct nand_chip *chip = nand->priv;
 
-	printf("Device %d: ", idx);
+	printf("Device %d (%s %s): ", idx, chip->onfi_params.manufacturer, chip->onfi_params.model);
 	if (chip->numchips > 1)
 		printf("%dx ", chip->numchips);
 	printf("%s, sector size %u KiB\n",
@@ -397,6 +397,12 @@ static void nand_print_and_set_info(int idx)
 	printf("  Page size  %8d b\n", nand->writesize);
 	printf("  OOB size   %8d b\n", nand->oobsize);
 	printf("  Erase size %8d b\n", nand->erasesize);
+
+	printf("  ECC BCH%d, block size        %d b\n", chip->ecc.strength, chip->ecc.size);
+	printf("  ECC bytes per block          %d b\n", chip->ecc.bytes);
+#if defined(CONFIG_NAND_OOB_FS_BYTES)
+	printf("  ECC reserved for file system %d b\n", CONFIG_NAND_OOB_FS_BYTES);
+#endif
 
 	/* Set geometry info */
 	setenv_hex("nand_writesize", nand->writesize);
