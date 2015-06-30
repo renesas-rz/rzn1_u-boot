@@ -2904,7 +2904,6 @@ static const struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 {
 	const char *name;
 	int i, maf_idx;
-	u8 id_data[8];
 
 	/* Select the device */
 	chip->select_chip(mtd, 0);
@@ -2933,12 +2932,12 @@ static const struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 
 	/* Read entire ID string */
 	for (i = 0; i < 8; i++)
-		id_data[i] = chip->read_byte(mtd);
+		chip->readid_data[i] = chip->read_byte(mtd);
 
-	if (id_data[0] != *maf_id || id_data[1] != *dev_id) {
+	if (chip->readid_data[0] != *maf_id || chip->readid_data[1] != *dev_id) {
 		pr_info("%s: second ID read did not match "
 			"%02x,%02x against %02x,%02x\n", __func__,
-			*maf_id, *dev_id, id_data[0], id_data[1]);
+			*maf_id, *dev_id, chip->readid_data[0], chip->readid_data[1]);
 		return ERR_PTR(-ENODEV);
 	}
 
@@ -2966,12 +2965,12 @@ static const struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 
 	if (!type->pagesize && chip->init_size) {
 		/* Set the pagesize, oobsize, erasesize by the driver */
-		busw = chip->init_size(mtd, chip, id_data);
+		busw = chip->init_size(mtd, chip, chip->readid_data);
 	} else if (!type->pagesize) {
 		/* Decode parameters from extended ID */
-		nand_decode_ext_id(mtd, chip, id_data, &busw);
+		nand_decode_ext_id(mtd, chip, chip->readid_data, &busw);
 	} else {
-		nand_decode_id(mtd, chip, type, id_data, &busw);
+		nand_decode_id(mtd, chip, type, chip->readid_data, &busw);
 	}
 	/* Get chip options, preserve non chip based options */
 	chip->options |= type->options;
@@ -3004,7 +3003,7 @@ ident_done:
 		return ERR_PTR(-EINVAL);
 	}
 
-	nand_decode_bbm_options(mtd, chip, id_data);
+	nand_decode_bbm_options(mtd, chip, chip->readid_data);
 
 	/* Calculate the address shift from the page size */
 	chip->page_shift = ffs(mtd->writesize) - 1;

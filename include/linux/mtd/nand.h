@@ -539,6 +539,7 @@ struct nand_chip {
 	int badblockpos;
 	int badblockbits;
 
+	u8 readid_data[8];
 	int onfi_version;
 #ifdef CONFIG_SYS_NAND_ONFI_DETECTION
 	struct nand_onfi_params onfi_params;
