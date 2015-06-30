@@ -21,7 +21,6 @@ int nand_scan_ident(struct mtd_info *mtd, int max_chips,
 	struct nand_chip *chip = mtd->priv;
 	int i;
 	u8 mfg_id, dev_id;
-	u8 id_data[8];
 	struct nand_onfi_params *p = &chip->onfi_params;
 
 	/* Reset the chip */
@@ -37,8 +36,8 @@ int nand_scan_ident(struct mtd_info *mtd, int max_chips,
 	/* Try again to make sure */
 	chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
 	for (i = 0; i < 8; i++)
-		id_data[i] = chip->read_byte(mtd);
-	if (id_data[0] != mfg_id || id_data[1] != dev_id) {
+		chip->readid_data[i] = chip->read_byte(mtd);
+	if (chip->readid_data[0] != mfg_id || chip->readid_data[1] != dev_id) {
 		printf("second ID read did not match");
 		return -ENODEV;
 	}
