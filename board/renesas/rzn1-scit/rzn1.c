@@ -179,7 +179,7 @@ int dram_init(void)
 	/* DDR Controller is always in ASYNC mode */
 	cdns_ddr_ctrl_init((u32 *)RZN1_DDR_BASE, 1,
 			    ddr_00_87_async, ddr_350_374_async,
-			    RZN1_V_DDR_BASE, CONFIG_SYS_SDRAM_SIZE);
+			    RZN1_V_DDR_BASE, SZ_256M);
 
 #if defined(CONFIG_CADENCE_DDR_CTRL_ENABLE_ECC)
 	/*
@@ -188,7 +188,7 @@ int dram_init(void)
 	 * size less than the AXI bus width. So, the only sensible solution is
 	 * to write to all of DDR now and take the hit...
 	 */
-	 memset((void *)RZN1_V_DDR_BASE, 0xff, CONFIG_SYS_SDRAM_SIZE);
+	 memset((void *)RZN1_V_DDR_BASE, 0xff, SZ_128M);
 
 	/*
 	 * Note: The call to get_ram_size() below checks to see what memory is

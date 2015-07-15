@@ -65,6 +65,13 @@
 #define CONFIG_CQSPI_REF_CLK		CONFIG_SYS_CLK_FREQ
 
 /* SRAM */
+/*
+ * SCIT Step 3: Lie horribly about the size of SRAM so that U-boot places it's
+ * MMU table, heap, relocated stacks, etc at the top of DDR.
+ */
+#undef CONFIG_SYS_SRAM_SIZE
+#define CONFIG_SYS_SRAM_SIZE		(RZN1_V_DDR_BASE - RZN1_RAM2MB_ID_BASE + 256 * 1024 * 1024)
+
 #define CONFIG_SYS_TEXT_BASE		0x04000000
 #define CONFIG_SYS_STAY_IN_SRAM
 /* Very early stack, 256KB into SRAM */
@@ -78,6 +85,8 @@
 #define CONFIG_SYS_MEMTEST_END		(CONFIG_SYS_MEMTEST_START + 32 * 1024 * 1024)
 #define	CONFIG_SYS_ALT_MEMTEST
 #define CONFIG_SYS_MEMTEST_SCRATCH	RZN1_RAM2MB_SYS_BASE
+#undef CONFIG_SYS_SDRAM_SIZE
+#define CONFIG_SYS_SDRAM_SIZE		(128 * 1024 * 1024)
 
 /* This is not used by uboot startup, just by nand etc */
 #define CONFIG_SYS_LOAD_ADDR		0x81000000
