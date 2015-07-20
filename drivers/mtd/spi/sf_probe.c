@@ -95,6 +95,57 @@ static int spi_flash_set_qeb(struct spi_flash *flash, u8 idcode0)
 	}
 }
 
+#ifdef CONFIG_SPI_FLASH_STMICRO
+static int read_vcr(struct spi_flash *flash, u8 *vcr)
+{
+	int ret;
+	const u8 cmd = CMD_READ_VCR;
+
+	ret = spi_flash_read_common(flash, &cmd, 1, vcr, 1);
+	if (ret < 0) {
+		debug("SF: error reading VCR\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int write_vcr(struct spi_flash *flash, u8 vcr)
+{
+	u8 cmd;
+	int ret;
+
+	cmd = CMD_WRITE_VCR;
+	ret = spi_flash_write_common(flash, &cmd, 1, &vcr, 1);
+	if (ret < 0) {
+		debug("SF: error while writing VCR register\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int micron_set_dummy_cycles(struct spi_flash *flash, u32 cycles)
+{
+	u8 config, current_cycles;
+	int ret;
+
+	ret = read_vcr(flash, &config);
+	if (ret < 0)
+		return ret;
+
+	current_cycles = (config >> 4) & 0xf;
+	if (current_cycles == cycles)
+		return 0;
+
+	config &= ~(0xf << 4);
+	config |= (cycles << 4);
+	ret = write_vcr(flash, config);
+
+	return ret;
+}
+#endif
+
 static struct spi_flash *spi_flash_validate_params(struct spi_slave *spi,
 		u8 *idcode)
 {
@@ -197,30 +248,55 @@ static struct spi_flash *spi_flash_validate_params(struct spi_slave *spi,
 		/* Go for default supported write cmd */
 		flash->write_cmd = CMD_PAGE_PROGRAM;
 
-	/* Read dummy_byte: dummy byte is determined based on the
+	/* Read dummy_cycles: dummy byte is determined based on the
 	 * dummy cycles of a particular command.
-	 * Fast commands - dummy_byte = dummy_cycles/8
-	 * I/O commands- dummy_byte = (dummy_cycles * no.of lines)/8
+	 * Fast commands - dummy_cycles = dummy_cycles/8
+	 * I/O commands- dummy_cycles = (dummy_cycles * no.of lines)/8
 	 * For I/O commands except cmd[0] everything goes on no.of lines
 	 * based on particular command but incase of fast commands except
 	 * data all go on single line irrespective of command.
 	 */
 	switch (flash->read_cmd) {
 	case CMD_READ_QUAD_IO_FAST:
-		flash->dummy_byte = 2;
+		flash->dummy_cycles = 8;
 		break;
 	case CMD_READ_ARRAY_SLOW:
-		flash->dummy_byte = 0;
+		flash->dummy_cycles = 0;
 		break;
 	default:
-		flash->dummy_byte = 1;
+		flash->dummy_cycles = 4;
+		break;
 	}
+
+	/*
+	 * Other SPI Flash devices use a code to specify the number of dummy
+	 * cycles to use, so for simplicity we don't set them.
+	 */
 
 	/* Poll cmd selection */
 	flash->poll_cmd = CMD_READ_STATUS;
 #ifdef CONFIG_SPI_FLASH_STMICRO
 	if (params->flags & E_FSR)
 		flash->poll_cmd = CMD_FLAG_STATUS;
+#endif
+
+	/*
+	 * We are ignoring the above calculation of dummy cycles as it
+	 * is completely bogus.
+	 */
+#ifndef CONFIG_SPI_FLASH_DUMMY_CYCLES
+ #define CONFIG_SPI_FLASH_DUMMY_CYCLES 0
+#endif
+
+#ifndef CONFIG_SPL_BUILD
+	flash->dummy_cycles = getenv_ulong("sf_dummy_clks", 10,
+			CONFIG_SPI_FLASH_DUMMY_CYCLES);
+#else
+	flash->dummy_cycles = CONFIG_SPI_FLASH_DUMMY_CYCLES;
+#endif	/* CONFIG_SPL_BUILD */
+
+#ifdef CONFIG_SPI_FLASH_STMICRO
+	micron_set_dummy_cycles(flash, flash->dummy_cycles);
 #endif
 
 	/* Configure the BAR - discover bank cmds and read current bank */

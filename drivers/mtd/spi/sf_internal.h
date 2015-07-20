@@ -37,6 +37,7 @@
 #define CMD_WRITE_ENABLE		0x06
 #define CMD_READ_CONFIG			0x35
 #define CMD_FLAG_STATUS			0x70
+#define CMD_WRITE_VCR			0x81
 
 /* Read commands */
 #define CMD_READ_ARRAY_SLOW		0x03
@@ -52,6 +53,7 @@
 #define CMD_READ_QUAD_OUTPUT_FAST_4B	0x6c
 #define CMD_READ_QUAD_IO_FAST_4B	0xec
 #define CMD_READ_ID			0x9f
+#define CMD_READ_VCR			0x85
 
 /* Bank addr access commands */
 #ifdef CONFIG_SPI_FLASH_BAR

@@ -421,7 +421,7 @@ int spi_flash_cmd_read_ops(struct spi_flash *flash, u32 offset,
 		return 0;
 	}
 
-	cmdsz = SPI_FLASH_CMD_LEN + flash->dummy_byte;
+	cmdsz = SPI_FLASH_CMD_LEN;
 	cmd = calloc(1, cmdsz);
 	if (!cmd) {
 		debug("SF: Failed to allocate cmd\n");
@@ -430,7 +430,7 @@ int spi_flash_cmd_read_ops(struct spi_flash *flash, u32 offset,
 
 	cmd[0] = flash->read_cmd;
 	while (len) {
-		cmdsz = SPI_FLASH_CMD_LEN + flash->dummy_byte;
+		cmdsz = SPI_FLASH_CMD_LEN;
 		read_addr = offset;
 
 #ifdef CONFIG_SF_DUAL_FLASH
