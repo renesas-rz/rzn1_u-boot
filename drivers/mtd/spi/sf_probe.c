@@ -213,7 +213,20 @@ static struct spi_flash *spi_flash_validate_params(struct spi_slave *spi,
 		flash->dummy_byte = 0;
 		break;
 	default:
-		flash->dummy_byte = 1;
+		/*
+		 * Modern Spansion and Winbond devices don't have any dummy
+		 * cycles for dual at 'normal' speeds. Higher speeds may need
+		 * them, but you also have to send cmds to set the latency.
+		 */
+		switch (idcode[0]) {
+		case SPI_FLASH_CFI_MFR_SPANSION:
+		case SPI_FLASH_CFI_MFR_WINBOND:
+			flash->dummy_byte = 0;
+			break;
+		default:
+			flash->dummy_byte = 1;
+			break;
+		}
 	}
 
 	/* Poll cmd selection */
