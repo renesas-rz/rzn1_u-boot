@@ -17,12 +17,19 @@
 
 #include "sf_internal.h"
 
-static void spi_flash_addr(u32 addr, u8 *cmd)
+static void spi_flash_addr(struct spi_flash *flash, u32 addr, u8 *cmd)
 {
 	/* cmd[0] is actual command */
-	cmd[1] = addr >> 16;
-	cmd[2] = addr >> 8;
-	cmd[3] = addr >> 0;
+	if (flash->spi->addressing_bytes == 4) {
+		cmd[1] = addr >> 24;
+		cmd[2] = addr >> 16;
+		cmd[3] = addr >> 8;
+		cmd[4] = addr >> 0;
+	} else {
+		cmd[1] = addr >> 16;
+		cmd[2] = addr >> 8;
+		cmd[3] = addr >> 0;
+	}
 }
 
 int spi_flash_cmd_read_status(struct spi_flash *flash, u8 *rs)
@@ -249,6 +256,7 @@ int spi_flash_cmd_erase_ops(struct spi_flash *flash, u32 offset, size_t len)
 {
 	u32 erase_size, erase_addr;
 	u8 cmd[SPI_FLASH_CMD_LEN];
+	u8 cmd_len = sizeof(cmd);
 	int ret = -1;
 
 	erase_size = flash->erase_size;
@@ -266,16 +274,20 @@ int spi_flash_cmd_erase_ops(struct spi_flash *flash, u32 offset, size_t len)
 			spi_flash_dual_flash(flash, &erase_addr);
 #endif
 #ifdef CONFIG_SPI_FLASH_BAR
-		ret = spi_flash_bank(flash, erase_addr);
-		if (ret < 0)
-			return ret;
+		if (flash->spi->addressing_bytes == 3) {
+			ret = spi_flash_bank(flash, erase_addr);
+			if (ret < 0)
+				return ret;
+		}
 #endif
-		spi_flash_addr(erase_addr, cmd);
+		spi_flash_addr(flash, erase_addr, cmd);
+		if (flash->spi->addressing_bytes == 3)
+			cmd_len--;
 
 		debug("SF: erase %2x %2x %2x %2x (%x)\n", cmd[0], cmd[1],
 		      cmd[2], cmd[3], erase_addr);
 
-		ret = spi_flash_write_common(flash, cmd, sizeof(cmd), NULL, 0);
+		ret = spi_flash_write_common(flash, cmd, cmd_len, NULL, 0);
 		if (ret < 0) {
 			debug("SF: erase failed\n");
 			break;
@@ -295,6 +307,7 @@ int spi_flash_cmd_write_ops(struct spi_flash *flash, u32 offset,
 	u32 write_addr;
 	size_t chunk_len, actual;
 	u8 cmd[SPI_FLASH_CMD_LEN];
+	u8 cmd_len = sizeof(cmd);
 	int ret = -1;
 
 	/* Handle memory-mapped SPI */
@@ -332,12 +345,14 @@ int spi_flash_cmd_write_ops(struct spi_flash *flash, u32 offset,
 		if (flash->spi->max_write_size)
 			chunk_len = min(chunk_len, flash->spi->max_write_size);
 
-		spi_flash_addr(write_addr, cmd);
+		spi_flash_addr(flash, write_addr, cmd);
+		if (flash->spi->addressing_bytes == 3)
+			cmd_len--;
 
 		debug("SF: 0x%p => cmd = { 0x%02x 0x%02x%02x%02x } chunk_len = %zu\n",
 		      buf + actual, cmd[0], cmd[1], cmd[2], cmd[3], chunk_len);
 
-		ret = spi_flash_write_common(flash, cmd, sizeof(cmd),
+		ret = spi_flash_write_common(flash, cmd, cmd_len,
 					buf + actual, chunk_len);
 		if (ret < 0) {
 			debug("SF: write failed\n");
@@ -422,7 +437,9 @@ int spi_flash_cmd_read_ops(struct spi_flash *flash, u32 offset,
 		else
 			read_len = remain_len;
 
-		spi_flash_addr(read_addr, cmd);
+		spi_flash_addr(flash, read_addr, cmd);
+		if (flash->spi->addressing_bytes == 3)
+			cmdsz--;
 
 		ret = spi_flash_read_common(flash, cmd, cmdsz, data, read_len);
 		if (ret < 0) {

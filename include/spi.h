@@ -82,6 +82,7 @@ struct spi_slave {
 	void *memory_map_write;
 	u8 option;
 	u8 flags;
+	u8 addressing_bytes;
 };
 
 /**

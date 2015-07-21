@@ -239,7 +239,30 @@ static struct spi_flash *spi_flash_validate_params(struct spi_slave *spi,
 	/* Configure the BAR - discover bank cmds and read current bank */
 #ifdef CONFIG_SPI_FLASH_BAR
 	u8 curr_bank = 0;
+	flash->spi->addressing_bytes = 3;
 	if (flash->size > SPI_FLASH_16MB_BOUN) {
+		if (flash->spi->memory_map) {
+			u8 cmd, data;
+
+			/* Switch to 4-byte addressing mode */
+			flash->spi->addressing_bytes = 4;
+
+			/* For Spansion, send Bank Write command with ExtAdd set */
+			cmd = CMD_BANKADDR_BRWR;
+			data = 0x80;
+			if (spi_flash_cmd_write(flash->spi, &cmd, 1, &data, 1)) {
+				debug("SF: fail to set 4-byte addressing (Spansion)\n");
+				return NULL;
+			}
+
+			/* Everyone else reponds to 0xb7 command */
+			cmd = CMD_ENTER_4B_ADDRESSING;
+			if (spi_flash_cmd_write(flash->spi, &cmd, 1, NULL, 0)) {
+				debug("SF: fail to set 4-byte addressing\n");
+				return NULL;
+			}
+		}
+
 		flash->bank_read_cmd = (idcode[0] == 0x01) ?
 					CMD_BANKADDR_BRRD : CMD_EXTNADDR_RDEAR;
 		flash->bank_write_cmd = (idcode[0] == 0x01) ?
