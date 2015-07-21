@@ -11,7 +11,8 @@
 #define _SF_INTERNAL_H_
 
 #define SPI_FLASH_3B_ADDR_LEN		3
-#define SPI_FLASH_CMD_LEN		(1 + SPI_FLASH_3B_ADDR_LEN)
+#define SPI_FLASH_4B_ADDR_LEN		4
+#define SPI_FLASH_CMD_LEN		(1 + SPI_FLASH_4B_ADDR_LEN)
 #define SPI_FLASH_16MB_BOUN		0x1000000
 
 /* CFI Manufacture ID's */
@@ -44,6 +45,12 @@
 #define CMD_READ_DUAL_IO_FAST		0xbb
 #define CMD_READ_QUAD_OUTPUT_FAST	0x6b
 #define CMD_READ_QUAD_IO_FAST		0xeb
+#define CMD_READ_ARRAY_SLOW_4B		0x13
+#define CMD_READ_ARRAY_FAST_4B		0x0c
+#define CMD_READ_DUAL_OUTPUT_FAST_4B	0x3c
+#define CMD_READ_DUAL_IO_FAST_4B	0xbc
+#define CMD_READ_QUAD_OUTPUT_FAST_4B	0x6c
+#define CMD_READ_QUAD_IO_FAST_4B	0xec
 #define CMD_READ_ID			0x9f
 
 /* Bank addr access commands */
@@ -52,6 +59,8 @@
 # define CMD_BANKADDR_BRRD		0x16
 # define CMD_EXTNADDR_WREAR		0xC5
 # define CMD_EXTNADDR_RDEAR		0xC8
+# define CMD_ENTER_4B_ADDRESSING	0xB7
+# define CMD_EXIT_4B_ADDRESSING		0xE9
 #endif
 
 /* Common status */
