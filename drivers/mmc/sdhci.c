@@ -266,6 +266,7 @@ int sdhci_send_command(struct mmc *mmc, struct mmc_cmd *cmd,
 		return COMM_ERR;
 }
 
+static void sdhci_set_power(struct sdhci_host *host, unsigned short power);
 static int sdhci_set_clock(struct mmc *mmc, unsigned int clock)
 {
 	struct sdhci_host *host = mmc->priv;
@@ -293,6 +294,7 @@ static int sdhci_set_clock(struct mmc *mmc, unsigned int clock)
 				break;
 		}
 	}
+
 	div >>= 1;
 
 	if (host->set_clock)
@@ -319,6 +321,17 @@ static int sdhci_set_clock(struct mmc *mmc, unsigned int clock)
 
 	clk |= SDHCI_CLOCK_CARD_EN;
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+
+#if defined(CONFIG_MACH_SCIT)
+	/* SCIT HACK: The SDHC switches power off if it detects the No Card State,
+	 * which seems to happen at some point before this. Re-enabling it here
+	 * gets round this problem.
+	 */
+	sdhci_set_power(host, fls(mmc->cfg->voltages) - 1);
+	while (!(sdhci_readb(host, SDHCI_POWER_CONTROL) & SDHCI_POWER_ON))
+		;
+#endif
+
 	return 0;
 }
 
