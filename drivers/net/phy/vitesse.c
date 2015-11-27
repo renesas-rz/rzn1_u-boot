@@ -126,7 +126,6 @@ static int cis8204_config(struct phy_device *phydev)
 	genphy_config_aneg(phydev);
 
 	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
-			(phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
 			(phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID) ||
 			(phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID))
 		phy_write(phydev, MDIO_DEVAD_NONE, MIIM_CIS8204_EPHY_CON,
@@ -252,6 +251,48 @@ static int vsc8514_config(struct phy_device *phydev)
 	return 0;
 }
 
+static int vsc8552_config(struct phy_device *phydev)
+{
+	u32 val;
+	int timeout = 1000000;
+
+	/* configure register to access 19G */
+	phy_write(phydev, MDIO_DEVAD_NONE, PHY_EXT_PAGE_ACCESS,
+		  PHY_EXT_PAGE_ACCESS_GENERAL);
+
+	val = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_GENERAL19);
+	if (phydev->interface == PHY_INTERFACE_MODE_RGMII) {
+		/* set bit 15:14 to '10' for RGMII mode */
+		val = (val & 0x3fff) | (2 << 14);
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			  MIIM_VSC8514_GENERAL19, val);
+	} else {
+		printf("PHY 8552 only RGMII supported!\n");
+	}
+
+	val = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_GENERAL18);
+	/* When bit 15 is cleared the command has completed */
+	while ((val & MIIM_VSC8514_18G_CMDSTAT) && timeout--)
+		val = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_GENERAL18);
+
+	if (0 == timeout) {
+		printf("PHY 8552 config failed\n");
+		return -1;
+	}
+
+	phy_write(phydev, MDIO_DEVAD_NONE, PHY_EXT_PAGE_ACCESS, 0);
+
+	/* configure register to access 23 */
+	val = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_GENERAL23);
+	/* set bits 10:8 to '000' */
+	val = (val & 0xf8ff);
+	phy_write(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_GENERAL23, val);
+
+	genphy_config_aneg(phydev);
+
+	return 0;
+}
+
 static int vsc8664_config(struct phy_device *phydev)
 {
 	u32 val;
@@ -339,6 +380,16 @@ static struct phy_driver VSC8514_driver = {
 	.shutdown = &genphy_shutdown,
 };
 
+static struct phy_driver VSC8552_driver = {
+	.name = "Vitesse VSC8552",
+	.uid = 0x704e0,
+	.mask = 0xffff0,
+	.features = PHY_GBIT_FEATURES,
+	.config = &vsc8552_config,
+	.startup = &vitesse_startup,
+	.shutdown = &genphy_shutdown,
+};
+
 static struct phy_driver VSC8601_driver = {
 	.name = "Vitesse VSC8601",
 	.uid = 0x70420,
@@ -410,6 +461,7 @@ int phy_vitesse_init(void)
 	phy_register(&VSC8221_driver);
 	phy_register(&VSC8574_driver);
 	phy_register(&VSC8514_driver);
+	phy_register(&VSC8552_driver);
 	phy_register(&VSC8662_driver);
 	phy_register(&VSC8664_driver);
 	phy_register(&cis8201_driver);
