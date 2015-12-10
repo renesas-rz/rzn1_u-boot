@@ -90,7 +90,11 @@ ENTRY(_smp_pen)
 	str	r1, [r12, #GICC_EOIR]		@ signal end of interrupt
 
 	adr	r0, _smp_pen			@ do not use this address again
+#ifdef CONFIG_SMP_PEN2_ADDR
+	b	smp_waitloop2			@ wait for IPIs, board specific
+#else
 	b	smp_waitloop			@ wait for IPIs, board specific
+#endif
 ENDPROC(_smp_pen)
 
 /*
@@ -186,6 +190,19 @@ ENTRY(smp_waitloop)
 	mov	pc, r1
 ENDPROC(smp_waitloop)
 .weak smp_waitloop
+
+#ifdef CONFIG_SMP_PEN2_ADDR
+/* void __weak smp_waitloop2(unsigned previous_address); */
+ENTRY(smp_waitloop2)
+	wfi
+	ldr	r1, =CONFIG_SMP_PEN2_ADDR	@ load start address
+	ldr	r1, [r1]
+	cmp	r0, r1			@ make sure we dont execute this code
+	beq	smp_waitloop2		@ again (due to a spurious wakeup)
+	mov	pc, r1
+ENDPROC(smp_waitloop2)
+.weak smp_waitloop2
+#endif
 #endif
 
 ENTRY(_switch_to_hyp)
