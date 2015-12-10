@@ -189,6 +189,7 @@ __weak void setup_board_tags(struct tag **in_params) {}
 static void do_nonsec_virt_switch(void)
 {
 #if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV7_VIRT)
+	flush_dcache_all();	/* flush cache before switching to Non-sec */
 	if (armv7_switch_nonsec() == 0)
 #ifdef CONFIG_ARMV7_VIRT
 		if (armv7_switch_hyp() == 0)
