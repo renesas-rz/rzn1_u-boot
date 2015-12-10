@@ -59,6 +59,16 @@
 #ifndef __ASSEMBLY__
 #include <linux/types.h>
 
+#ifdef __ARM_ARCH_7A__
+#define ISB	asm volatile ("isb" : : : "memory")
+#define DSB	asm volatile ("dsb" : : : "memory")
+#define DMB	asm volatile ("dmb" : : : "memory")
+#else
+#define ISB	CP15ISB
+#define DSB	CP15DSB
+#define DMB	CP15DMB
+#endif
+
 /*
  * CP15 Barrier instructions
  * Please note that we have separate barrier instructions in ARMv7
