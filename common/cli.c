@@ -99,9 +99,9 @@ int run_command_list(const char *cmd, int len, int flag)
 	 * is pretty rare.
 	 */
 	rcode = cli_simple_run_command_list(buff, flag);
+#endif
 	if (need_buff)
 		free(buff);
-#endif
 
 	return rcode;
 }
