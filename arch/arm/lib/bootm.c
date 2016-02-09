@@ -11,7 +11,7 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
-
+#define DEBUG
 #include <common.h>
 #include <command.h>
 #include <image.h>
@@ -190,12 +190,16 @@ static void do_nonsec_virt_switch(void)
 {
 #if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV7_VIRT)
 	flush_dcache_all();	/* flush cache before switching to Non-sec */
+#ifdef CONFIG_ARMV7_NONSEC_AT_BOOT
+	printf("Already in NONSEC mode\n");
+#else
 	if (armv7_switch_nonsec() == 0)
 #ifdef CONFIG_ARMV7_VIRT
 		if (armv7_switch_hyp() == 0)
 			debug("entered HYP mode\n");
 #else
 		debug("entered non-secure state\n");
+#endif
 #endif
 #endif
 
