@@ -336,6 +336,12 @@ static int m88e1518_config(struct phy_device *phydev)
 	return m88e1111s_config(phydev);
 }
 
+/* Marvell 88E1512 */
+static int m88e1512_config(struct phy_device *phydev)
+{
+	return m88e1518_config(phydev);
+}
+
 /* Marvell 88E1510 */
 static int m88e1510_config(struct phy_device *phydev)
 {
@@ -570,9 +576,19 @@ static struct phy_driver M88E1149S_driver = {
 static struct phy_driver M88E1510_driver = {
 	.name = "Marvell 88E1510",
 	.uid = 0x1410dd0,
-	.mask = 0xffffff0,
+	.mask = 0xfffffff,
 	.features = PHY_GBIT_FEATURES,
 	.config = &m88e1510_config,
+	.startup = &m88e1011s_startup,
+	.shutdown = &genphy_shutdown,
+};
+
+static struct phy_driver M88E1512_driver = {
+	.name = "Marvell 88E1512",
+	.uid = 0x01410dd4,
+	.mask = 0xfffffff,
+	.features = PHY_GBIT_FEATURES,
+	.config = &m88e1512_config,
 	.startup = &m88e1011s_startup,
 	.shutdown = &genphy_shutdown,
 };
@@ -580,7 +596,7 @@ static struct phy_driver M88E1510_driver = {
 static struct phy_driver M88E1518_driver = {
 	.name = "Marvell 88E1518",
 	.uid = 0x1410dd1,
-	.mask = 0xffffff0,
+	.mask = 0xfffffff,
 	.features = PHY_GBIT_FEATURES,
 	.config = &m88e1518_config,
 	.startup = &m88e1011s_startup,
@@ -608,6 +624,7 @@ int phy_marvell_init(void)
 	phy_register(&M88E1111S_driver);
 	phy_register(&M88E1011S_driver);
 	phy_register(&M88E1510_driver);
+	phy_register(&M88E1512_driver);
 	phy_register(&M88E1518_driver);
 
 	return 0;
