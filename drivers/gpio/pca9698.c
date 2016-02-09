@@ -26,7 +26,7 @@
 #define PCA9698_BUFFER_SIZE		5
 #define PCA9698_GPIO_COUNT		40
 
-static int pca9698_read40(u8 addr, u8 offset, u8 *buffer)
+int pca9698_read40(u8 addr, u8 offset, u8 *buffer)
 {
 	u8 command = offset | 0x80;  /* autoincrement */
 
@@ -110,6 +110,34 @@ int pca9698_get_value(u8 addr, unsigned gpio)
 	value = data[config_byte] & (1 << config_bit);
 
 	return !!value;
+}
+
+
+u64  pca9698_read_all(u8 addr)
+{
+	union {
+		u8 data[PCA9698_BUFFER_SIZE];
+		u64 raw;
+	} d;
+	int res;
+
+	res = pca9698_read40(addr, PCA9698_REG_INPUT, d.data);
+	if (res)
+		return ~0;
+	return d.raw;
+}
+
+
+int  pca9698_set_all(u8 addr, u8 direction[5], u8 value[5])
+{
+	int res;
+
+	res = pca9698_write40(addr, PCA9698_REG_OUTPUT, value);
+	if (res)
+		return res;
+	res = pca9698_write40(addr, PCA9698_REG_CONFIG, direction);
+
+	return res;
 }
 
 int pca9698_set_value(u8 addr, unsigned gpio, int value)
