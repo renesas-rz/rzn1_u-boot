@@ -316,13 +316,19 @@ static int m88e1518_config(struct phy_device *phydev)
 	phy_write(phydev, MDIO_DEVAD_NONE, 16, 0x2159);
 	phy_write(phydev, MDIO_DEVAD_NONE, 22, 0x0000);
 
-	/* SGMII-to-Copper mode initialization */
-	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
+	/* SGMII/RGMII-to-Copper mode initialization */
+	if ((phydev->interface == PHY_INTERFACE_MODE_SGMII) ||
+			(phydev->interface == PHY_INTERFACE_MODE_RGMII)) {
 		/* Select page 18 */
 		phy_write(phydev, MDIO_DEVAD_NONE, 22, 18);
 
-		/* In reg 20, write MODE[2:0] = 0x1 (SGMII to Copper) */
-		m88e1518_phy_writebits(phydev, 20, 0, 3, 1);
+		if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
+			/* In reg 20, write MODE[2:0] = 0x1 (SGMII to Copper) */
+			m88e1518_phy_writebits(phydev, 20, 0, 3, 1);
+		} else {
+			/* In reg 20, write MODE[2:0] = 0x0 (RGMII to Copper) */
+			m88e1518_phy_writebits(phydev, 20, 0, 3, 0);
+		}
 
 		/* PHY reset is necessary after changing MODE[2:0] */
 		m88e1518_phy_writebits(phydev, 20, 15, 1, 1);
