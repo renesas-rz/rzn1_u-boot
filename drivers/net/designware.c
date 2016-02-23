@@ -390,9 +390,15 @@ static int dw_phy_init(struct eth_device *dev)
 	struct phy_device *phydev;
 	int mask = 0xffffffff;
 
+	if (dev->index == 0) {
 #ifdef CONFIG_PHY_ADDR
-	mask = 1 << CONFIG_PHY_ADDR;
+		mask = 1 << CONFIG_PHY_ADDR;
 #endif
+	} else if (dev->index == 1) {
+#ifdef CONFIG_PHY1_ADDR
+		mask = 1 << CONFIG_PHY1_ADDR;
+#endif
+	}
 
 	phydev = phy_find_by_mask(priv->bus, mask, priv->interface);
 	if (!phydev)
