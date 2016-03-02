@@ -225,6 +225,12 @@ static void dw_eth_halt(struct eth_device *dev)
 	phy_shutdown(priv->phydev);
 }
 
+int __attribute__((weak)) phy_adjust_link_notifier(struct phy_device *phydev)
+{
+	/* nothing to do here */
+	return 0;
+}
+
 static int dw_eth_init(struct eth_device *dev, bd_t *bis)
 {
 	struct dw_eth_dev *priv = dev->priv;
@@ -266,6 +272,9 @@ static int dw_eth_init(struct eth_device *dev, bd_t *bis)
 	dw_adjust_link(mac_p, priv->phydev);
 
 	if (!priv->phydev->link)
+		return -1;
+
+	if (phy_adjust_link_notifier(priv->phydev) < 0)
 		return -1;
 
 	writel(readl(&mac_p->conf) | RXENABLE | TXENABLE, &mac_p->conf);
