@@ -230,6 +230,7 @@ struct dw_eth_dev {
 	struct eth_device *dev;
 	struct phy_device *phydev;
 	struct mii_dev *bus;
+	int fixed_link_speed;
 };
 
 #endif
