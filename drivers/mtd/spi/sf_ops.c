@@ -402,7 +402,7 @@ int spi_flash_read_common(struct spi_flash *flash, const u8 *cmd,
 int spi_flash_cmd_read_ops(struct spi_flash *flash, u32 offset,
 		size_t len, void *data)
 {
-	u8 *cmd, cmdsz;
+	u8 cmd[SPI_FLASH_CMD_LEN], cmdsz;
 	u32 remain_len, read_len, read_addr;
 	int bank_sel = 0;
 	int ret = -1;
@@ -419,13 +419,6 @@ int spi_flash_cmd_read_ops(struct spi_flash *flash, u32 offset,
 		spi_xfer(flash->spi, 0, NULL, NULL, SPI_XFER_MMAP_END);
 		spi_release_bus(flash->spi);
 		return 0;
-	}
-
-	cmdsz = SPI_FLASH_CMD_LEN;
-	cmd = calloc(1, cmdsz);
-	if (!cmd) {
-		debug("SF: Failed to allocate cmd\n");
-		return -ENOMEM;
 	}
 
 	cmd[0] = flash->read_cmd;
