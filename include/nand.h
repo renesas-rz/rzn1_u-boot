@@ -129,7 +129,7 @@ void nand_deselect(void);
 void board_nand_select_device(struct nand_chip *nand, int chip);
 #endif
 
-__attribute__((noreturn)) void nand_boot(void);
+void nand_boot(void);
 
 #endif
 

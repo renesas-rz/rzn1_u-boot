@@ -86,7 +86,7 @@ static int spl_nand_load_image(struct spl_image_info *spl_image,
 
 	/*use CONFIG_SYS_TEXT_BASE as temporary storage area */
 	header = (struct image_header *)(CONFIG_SYS_TEXT_BASE);
-#ifdef CONFIG_SPL_OS_BOOT
+#if  defined(CONFIG_SPL_OS_BOOT) && defined(CONFIG_SYS_NAND_SPL_KERNEL_OFFS)
 	if (!spl_start_uboot()) {
 		/*
 		 * load parameter image
