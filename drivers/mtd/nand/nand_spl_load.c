@@ -15,15 +15,18 @@
  */
 void nand_boot(void)
 {
+#ifdef CONFIG_SYS_NAND_U_BOOT_START
 	__attribute__((noreturn)) void (*uboot)(void);
+#endif
 
 	/*
 	 * Load U-Boot image from NAND into RAM
 	 */
+#ifdef CONFIG_SYS_NAND_U_BOOT_DST
 	nand_spl_load_image(CONFIG_SYS_NAND_U_BOOT_OFFS,
 			CONFIG_SYS_NAND_U_BOOT_SIZE,
 			(void *)CONFIG_SYS_NAND_U_BOOT_DST);
-
+#endif
 #ifdef CONFIG_NAND_ENV_DST
 	nand_spl_load_image(CONFIG_ENV_OFFSET, CONFIG_ENV_SIZE,
 			(void *)CONFIG_NAND_ENV_DST);
@@ -37,6 +40,8 @@ void nand_boot(void)
 	/*
 	 * Jump to U-Boot image
 	 */
+#ifdef CONFIG_SYS_NAND_U_BOOT_START
 	uboot = (void *)CONFIG_SYS_NAND_U_BOOT_START;
 	(*uboot)();
+#endif
 }
