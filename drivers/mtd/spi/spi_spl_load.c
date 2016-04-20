@@ -34,10 +34,11 @@ static int spi_load_image_os(struct spi_flash *flash,
 		       spl_image.size, (void *)spl_image.load_addr);
 
 	/* Read device tree. */
+#ifdef CONFIG_SYS_SPI_ARGS_OFFS
 	spi_flash_read(flash, CONFIG_SYS_SPI_ARGS_OFFS,
 		       CONFIG_SYS_SPI_ARGS_SIZE,
 		       (void *)CONFIG_SYS_SPL_ARGS_ADDR);
-
+#endif
 	return 0;
 }
 #endif
@@ -77,6 +78,10 @@ void spl_spi_load_one_uimage(struct spi_flash *flash, u32 offset)
 void spl_spi_load_image(void)
 {
 	struct spi_flash *flash;
+#ifdef CONFIG_SPL_OS_BOOT
+	struct image_header header_stack;
+	struct image_header *header = &header_stack;
+#endif
 
 	/*
 	 * Load U-Boot image from SPI flash into RAM
