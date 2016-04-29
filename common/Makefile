@@ -220,6 +220,7 @@ ifdef CONFIG_SPL_BUILD
 obj-$(CONFIG_ENV_IS_IN_FLASH) += env_flash.o
 obj-$(CONFIG_SPL_YMODEM_SUPPORT) += xyzModem.o
 obj-$(CONFIG_SPL_NET_SUPPORT) += miiphyutil.o
+obj-$(CONFIG_SPL_LIBFDT_SUPPORT) += fdt_support.o
 # environment
 obj-$(CONFIG_SPL_ENV_SUPPORT) += env_attr.o
 obj-$(CONFIG_SPL_ENV_SUPPORT) += env_flags.o
