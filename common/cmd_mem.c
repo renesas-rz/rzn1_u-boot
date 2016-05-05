@@ -376,7 +376,7 @@ static int do_mem_cp(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 	/* Check for size specification.
 	*/
-	if ((size = cmd_get_data_size(argv[0], 4)) < 0)
+	if ((size = cmd_get_data_size(argv[0], 0)) < 0)
 		return 1;
 
 	addr = simple_strtoul(argv[1], NULL, 16);
@@ -390,6 +390,12 @@ static int do_mem_cp(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	if (count == 0) {
 		puts ("Zero length ???\n");
 		return 1;
+	}
+
+	/* If size wasn't specified use memcpy for speed */
+	if (size == 0) {
+		memcpy((void *)dest, (void *)addr, count);
+		return 0;
 	}
 
 #ifndef CONFIG_SYS_NO_FLASH
