@@ -186,20 +186,21 @@ static void setup_end_tag(bd_t *bd)
 
 __weak void setup_board_tags(struct tag **in_params) {}
 
-static void do_nonsec_virt_switch(void)
+static void do_nonsec_virt_switch(int switch_hyp)
 {
 #if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV7_VIRT)
 	flush_dcache_all();	/* flush cache before switching to Non-sec */
 #ifdef CONFIG_ARMV7_NONSEC_AT_BOOT
 	printf("Already in NONSEC mode\n");
 #else
-	if (armv7_switch_nonsec() == 0)
+	if (armv7_switch_nonsec() == 0) {
 #ifdef CONFIG_ARMV7_VIRT
-		if (armv7_switch_hyp() == 0)
+		if (switch_hyp && armv7_switch_hyp() == 0)
 			debug("entered HYP mode\n");
-#else
-		debug("entered non-secure state\n");
+		else
+			debug("entered non-secure state\n");
 #endif
+	}
 #endif
 #endif
 
@@ -249,7 +250,10 @@ static void boot_prep_linux(bootm_headers_t *images)
 		printf("FDT and ATAGS support not compiled in - hanging\n");
 		hang();
 	}
-	do_nonsec_virt_switch();
+	if (getenv_yesno("boot_hyp") == 1)
+		do_nonsec_virt_switch(1);
+	else if (getenv_yesno("boot_nonsec") == 1)
+		do_nonsec_virt_switch(0);
 }
 
 /* Subcommand: GO */
