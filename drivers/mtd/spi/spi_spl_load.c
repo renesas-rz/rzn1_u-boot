@@ -13,7 +13,7 @@
 #include <spi_flash.h>
 #include <spl.h>
 
-#ifdef CONFIG_SPL_OS_BOOT
+#if defined(CONFIG_SPL_OS_BOOT) && defined(CONFIG_SYS_SPI_KERNEL_OFFS)
 /*
  * Load the kernel, check for a valid header we can parse, and if found load
  * the kernel and then device tree.
@@ -78,7 +78,7 @@ void spl_spi_load_one_uimage(struct spi_flash *flash, u32 offset)
 void spl_spi_load_image(void)
 {
 	struct spi_flash *flash;
-#ifdef CONFIG_SPL_OS_BOOT
+#if defined(CONFIG_SPL_OS_BOOT) && defined(CONFIG_SYS_SPI_KERNEL_OFFS)
 	struct image_header header_stack;
 	struct image_header *header = &header_stack;
 #endif
@@ -89,7 +89,7 @@ void spl_spi_load_image(void)
 
 	flash = spl_spi_probe();
 
-#ifdef CONFIG_SPL_OS_BOOT
+#if defined(CONFIG_SPL_OS_BOOT) && defined(CONFIG_SYS_SPI_KERNEL_OFFS)
 	if (spl_start_uboot() || spi_load_image_os(flash, header))
 #endif
 	{
