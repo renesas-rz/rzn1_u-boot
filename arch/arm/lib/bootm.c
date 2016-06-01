@@ -186,10 +186,15 @@ static void setup_end_tag(bd_t *bd)
 
 __weak void setup_board_tags(struct tag **in_params) {}
 
+#if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV7_VIRT)
+extern int nonsec_and_hyp;
+#endif
+
 static void do_nonsec_virt_switch(int switch_hyp)
 {
 #if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV7_VIRT)
 	flush_dcache_all();	/* flush cache before switching to Non-sec */
+	nonsec_and_hyp = switch_hyp;
 #ifdef CONFIG_ARMV7_NONSEC_AT_BOOT
 	printf("Already in NONSEC mode\n");
 #else

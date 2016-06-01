@@ -83,7 +83,12 @@ ENTRY(_smp_pen)
 	bl	_nonsec_init
 	mov	r12, r0				@ save GICC address
 #ifdef CONFIG_ARMV7_VIRT
+	ldr	r0, =nonsec_and_hyp		@ Get the global
+	ldr	r0, [r0]
+	cmp	r0, #0
+	beq	_skip_hyp			@ Don't hyp if not asked to
 	bl	_switch_to_hyp
+_skip_hyp:
 #endif
 
 	ldr	r1, [r12, #GICC_IAR]		@ acknowledge IPI
@@ -91,6 +96,10 @@ ENTRY(_smp_pen)
 
 	adr	r0, _smp_pen			@ do not use this address again
 	b	smp_waitloop			@ wait for IPIs, board specific
+
+	.globl 	nonsec_and_hyp
+nonsec_and_hyp:
+	.word 0
 ENDPROC(_smp_pen)
 
 /*
