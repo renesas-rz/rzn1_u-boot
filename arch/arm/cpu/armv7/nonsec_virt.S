@@ -207,7 +207,11 @@ ENDPROC(_nonsec_init)
 #ifdef CONFIG_SMP_PEN_ADDR
 /* void __weak smp_waitloop(unsigned previous_address); */
 ENTRY(smp_waitloop)
+#ifdef CONFIG_SMP_PEN_WFE
+	wfe
+#else
 	wfi
+#endif
 	ldr	r1, =CONFIG_SMP_PEN_ADDR	@ load start address
 	ldr	r1, [r1]
 #ifdef CONFIG_PEN_ADDR_BIG_ENDIAN
