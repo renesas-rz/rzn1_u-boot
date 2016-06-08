@@ -336,7 +336,7 @@ static int m88e1518_config(struct phy_device *phydev)
 		/* Reset page selection */
 		phy_write(phydev, MDIO_DEVAD_NONE, 22, 0);
 
-		udelay(100);
+		udelay(500);
 	}
 
 	return m88e1111s_config(phydev);
