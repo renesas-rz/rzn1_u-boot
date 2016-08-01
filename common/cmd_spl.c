@@ -47,6 +47,7 @@ static const char **subcmd_list[] = {
 	NULL
 };
 
+#ifdef CONFIG_CMD_BOOTM
 /* Calls bootm with the parameters given */
 static int call_bootm(int argc, char * const argv[], const char *subcommand[])
 {
@@ -93,6 +94,7 @@ static int call_bootm(int argc, char * const argv[], const char *subcommand[])
 
 	return 0;
 }
+#endif
 
 static cmd_tbl_t cmd_spl_export_sub[] = {
 	U_BOOT_CMD_MKENT(fdt, 0, 1, (void *)SPL_EXPORT_FDT, "", ""),

@@ -62,6 +62,7 @@ void mmu_set_region_dcache_behaviour(u32 start, int size,
 	mmu_page_table_flush((u32)&page_table[start], (u32)&page_table[end]);
 }
 
+#ifdef CONFIG_NR_DRAM_BANKS
 __weak void dram_bank_mmu_setup(int bank)
 {
 	bd_t *bd = gd->bd;
@@ -78,6 +79,7 @@ __weak void dram_bank_mmu_setup(int bank)
 #endif
 	}
 }
+#endif
 
 /* to activate the MMU we need to set up virtual memory: use 1M areas */
 static inline void mmu_setup(void)
@@ -89,11 +91,11 @@ static inline void mmu_setup(void)
 	/* Set up an identity-mapping for all 4GB, rw for everyone */
 	for (i = 0; i < 4096; i++)
 		set_section_dcache(i, DCACHE_OFF);
-
+#ifdef CONFIG_NR_DRAM_BANKS
 	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
 		dram_bank_mmu_setup(i);
 	}
-
+#endif
 	/* Copy the page table address to cp15 */
 	asm volatile("mcr p15, 0, %0, c2, c0, 0"
 		     : : "r" (gd->arch.tlb_addr) : "memory");

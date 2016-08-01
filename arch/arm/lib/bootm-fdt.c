@@ -22,6 +22,7 @@ DECLARE_GLOBAL_DATA_PTR;
 
 int arch_fixup_memory_node(void *blob)
 {
+#ifdef CONFIG_NR_DRAM_BANKS
 	bd_t *bd = gd->bd;
 	int bank;
 	u64 start[CONFIG_NR_DRAM_BANKS];
@@ -33,4 +34,7 @@ int arch_fixup_memory_node(void *blob)
 	}
 
 	return fdt_fixup_memory_banks(blob, start, size, CONFIG_NR_DRAM_BANKS);
+#else
+	return 0;
+#endif
 }
