@@ -474,9 +474,10 @@ static void jump_to_image(
 				     "/chosen", "rzn1,flash-offset",
 				     &code->part->offset,
 				     sizeof(code->part->offset), 1);
+#ifdef CONFIG_SYS_SDRAM_BASE
 		fdt_fixup_memory(dtb_mapped,
 				 CONFIG_SYS_SDRAM_BASE, gd->ram_size);
-
+#endif
 		fdt_fixup_ethernet(dtb_mapped);
 
 		if (data && data->load_addr && PKG_IS_INITRAMFS(data->part)) {
