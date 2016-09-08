@@ -11,6 +11,8 @@ static void report_time(ulong cycles)
 	ulong minutes, seconds, milliseconds;
 	ulong total_seconds, remainder;
 
+	setenv_ulong("milliseconds", cycles / (CONFIG_SYS_HZ / 1000));
+
 	total_seconds = cycles / CONFIG_SYS_HZ;
 	remainder = cycles % CONFIG_SYS_HZ;
 	minutes = total_seconds / 60;
