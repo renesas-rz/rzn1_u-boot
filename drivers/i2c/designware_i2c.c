@@ -39,26 +39,26 @@ static void set_speed(int i2c_spd)
 	switch (i2c_spd) {
 	case IC_SPEED_MODE_MAX:
 		cntl |= IC_CON_SPD_HS;
-		hcnt = (IC_CLK * MIN_HS_SCL_HIGHTIME) / NANO_TO_MICRO;
+		hcnt = (IC_CLK * MIN_HS_SCL_HIGHTIME + MIN_HS_SCL_HIGHTIME / 2) / NANO_TO_MICRO;
 		writel(hcnt, &i2c_regs_p->ic_hs_scl_hcnt);
-		lcnt = (IC_CLK * MIN_HS_SCL_LOWTIME) / NANO_TO_MICRO;
+		lcnt = (IC_CLK * MIN_HS_SCL_LOWTIME + MIN_HS_SCL_LOWTIME / 2) / NANO_TO_MICRO;
 		writel(lcnt, &i2c_regs_p->ic_hs_scl_lcnt);
 		break;
 
 	case IC_SPEED_MODE_STANDARD:
 		cntl |= IC_CON_SPD_SS;
-		hcnt = (IC_CLK * MIN_SS_SCL_HIGHTIME) / NANO_TO_MICRO;
+		hcnt = (IC_CLK * MIN_SS_SCL_HIGHTIME + MIN_SS_SCL_HIGHTIME / 2) / NANO_TO_MICRO;
 		writel(hcnt, &i2c_regs_p->ic_ss_scl_hcnt);
-		lcnt = (IC_CLK * MIN_SS_SCL_LOWTIME) / NANO_TO_MICRO;
+		lcnt = (IC_CLK * MIN_SS_SCL_LOWTIME + MIN_SS_SCL_LOWTIME / 2) / NANO_TO_MICRO;
 		writel(lcnt, &i2c_regs_p->ic_ss_scl_lcnt);
 		break;
 
 	case IC_SPEED_MODE_FAST:
 	default:
 		cntl |= IC_CON_SPD_FS;
-		hcnt = (IC_CLK * MIN_FS_SCL_HIGHTIME) / NANO_TO_MICRO;
+		hcnt = (IC_CLK * MIN_FS_SCL_HIGHTIME + MIN_FS_SCL_HIGHTIME / 2) / NANO_TO_MICRO;
 		writel(hcnt, &i2c_regs_p->ic_fs_scl_hcnt);
-		lcnt = (IC_CLK * MIN_FS_SCL_LOWTIME) / NANO_TO_MICRO;
+		lcnt = (IC_CLK * MIN_FS_SCL_LOWTIME + MIN_FS_SCL_LOWTIME / 2) / NANO_TO_MICRO;
 		writel(lcnt, &i2c_regs_p->ic_fs_scl_lcnt);
 		break;
 	}
