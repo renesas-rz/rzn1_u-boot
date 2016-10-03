@@ -1144,6 +1144,25 @@ int spi_flash_scan(struct spi_flash *flash)
 		flash->dummy_byte = 1;
 	}
 
+	/* Equivalent number of dummy cycles to above calculation */
+	flash->dummy_cycles = 8;
+
+	/* Most SPI Flash devices require a different number of dummy cycles
+	 * for operation at higher clock rates, or can operate at lower clock
+	 * rates with fewer dummy cycles. It may not be possible to represent
+	 * the required number of dummy cycles as dummy bytes.
+	 * Therefore, allow it to be specified for drivers that support it.
+	 * This assumes that you will only be accessing a single SF device.
+	 */
+#if defined(CONFIG_SPI_FLASH_DUMMY_CYCLES)
+ #ifdef CONFIG_SPL_BUILD
+	flash->dummy_cycles = CONFIG_SPI_FLASH_DUMMY_CYCLES;
+ #else
+	flash->dummy_cycles = getenv_ulong("sf_dummy_clks", 10,
+			CONFIG_SPI_FLASH_DUMMY_CYCLES);
+ #endif	/* CONFIG_SPL_BUILD */
+#endif
+
 #ifdef CONFIG_SPI_FLASH_STMICRO
 	if (info->flags & E_FSR)
 		flash->flags |= SNOR_F_USE_FSR;
