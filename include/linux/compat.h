@@ -269,6 +269,13 @@ struct device {
 	/* This is used from drivers/usb/musb-new subsystem only */
 	void		*driver_data;	/* data private to the driver */
 	void            *device_data;   /* data private to the device */
+
+	/* Linux driver compatibility only */
+	void		*platform_data;
+};
+/* Linux driver compatibility only */
+struct platform_device {
+	struct device dev;
 };
 struct mutex { int i; };
 struct kernel_param { int i; };
