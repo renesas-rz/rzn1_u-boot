@@ -105,6 +105,7 @@ struct spi_slave {
 	unsigned int max_write_size;
 	void *memory_map;
 	u8 option;
+	u8 addressing_bytes;
 
 	u8 flags;
 #define SPI_XFER_BEGIN		BIT(0)	/* Assert CS before transfer */
