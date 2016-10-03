@@ -49,6 +49,7 @@ struct spi_slave;
  * @write_cmd:		Write cmd - page and quad program.
  * @dummy_byte:		Dummy cycles for read operation.
  * @memory_map:		Address of read-only SPI flash access
+ * @memory_map_write:	Address of write SPI flash access
  * @flash_lock:		lock a region of the SPI Flash
  * @flash_unlock:	unlock a region of the SPI Flash
  * @flash_is_locked:	check if a region of the SPI Flash is completely locked
@@ -85,6 +86,7 @@ struct spi_flash {
 	u8 dummy_byte;
 
 	void *memory_map;
+	void *memory_map_write;
 
 	int (*flash_lock)(struct spi_flash *flash, u32 ofs, size_t len);
 	int (*flash_unlock)(struct spi_flash *flash, u32 ofs, size_t len);
