@@ -27,6 +27,8 @@ extern struct p_current *current;
 	printf(fmt, ##args)
 #define dev_warn(dev, fmt, args...)		\
 	printf(fmt, ##args)
+#define dev_crit(dev, fmt, args...)		\
+	printf(fmt, ##args)
 #define printk	printf
 #define printk_once	printf
 
