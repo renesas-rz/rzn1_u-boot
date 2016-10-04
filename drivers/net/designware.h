@@ -242,6 +242,7 @@ struct dw_eth_dev {
 
 	struct phy_device *phydev;
 	struct mii_dev *bus;
+	int fixed_link_speed;
 };
 
 #ifdef CONFIG_DM_ETH

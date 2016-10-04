@@ -35,6 +35,7 @@ int cs8900_initialize(u8 dev_num, int base_addr);
 int davinci_emac_initialize(void);
 int dc21x4x_initialize(bd_t *bis);
 int designware_initialize(ulong base_addr, u32 interface);
+int designware_initialize_fixed_link(ulong base_addr, u32 interface, int speed);
 int phy_adjust_link_notifier(struct phy_device *phydev);
 int dm9000_initialize(bd_t *bis);
 int dnet_eth_initialize(int id, void *regs, unsigned int phy_addr);
