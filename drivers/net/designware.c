@@ -327,7 +327,22 @@ static int _dw_eth_init(struct dw_eth_dev *priv, u8 *enetaddr)
 		return ret;
 	}
 
-	dw_adjust_link(mac_p, priv->phydev);
+	/* Fixed link? */
+	if (priv->fixed_link_speed) {
+		u32 conf = readl(&mac_p->conf) | FRAMEBURSTENABLE | DISABLERXOWN;
+
+		if (priv->fixed_link_speed != 1000)
+			conf |= MII_PORTSELECT;
+
+		if (priv->fixed_link_speed == 100)
+			conf |= FES_100;
+
+		conf |= FULLDPLXMODE;
+
+		writel(conf, &mac_p->conf);
+	} else {
+		dw_adjust_link(mac_p, priv->phydev);
+	}
 
 	if (!priv->phydev->link)
 		return -EIO;
@@ -531,7 +546,7 @@ static int dw_write_hwaddr(struct eth_device *dev)
 	return _dw_write_hwaddr(dev->priv, dev->enetaddr);
 }
 
-int designware_initialize(ulong base_addr, u32 interface)
+int designware_initialize_fixed_link(ulong base_addr, u32 interface, int speed)
 {
 	struct eth_device *dev;
 	struct dw_eth_dev *priv;
@@ -577,11 +592,17 @@ int designware_initialize(ulong base_addr, u32 interface)
 	eth_register(dev);
 
 	priv->interface = interface;
+	priv->fixed_link_speed = speed;
 
 	dw_mdio_init(dev->name, priv->mac_regs_p);
 	priv->bus = miiphy_get_dev_by_name(dev->name);
 
 	return dw_phy_init(priv, dev);
+}
+
+int designware_initialize(ulong base_addr, u32 interface)
+{
+	return designware_initialize_fixed_link(base_addr, interface, 0);
 }
 #endif
 
