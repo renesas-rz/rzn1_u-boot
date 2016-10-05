@@ -13,6 +13,7 @@ ifndef CONFIG_BLK
 obj-$(CONFIG_GENERIC_MMC) += mmc_legacy.o
 endif
 
+obj-$(CONFIG_ARASAN_SDHCI) += arasan_sdhci.o
 obj-$(CONFIG_ARM_PL180_MMCI) += arm_pl180_mmci.o
 obj-$(CONFIG_ATMEL_SDHCI) += atmel_sdhci.o
 obj-$(CONFIG_BFIN_SDH) += bfin_sdh.o
