@@ -466,6 +466,15 @@ static int dw_phy_init(struct dw_eth_dev *priv, void *dev)
 	mask = 1 << CONFIG_PHY_ADDR;
 #endif
 
+#ifndef CONFIG_DM_ETH
+	struct eth_device *edev = (struct eth_device *)dev;
+
+#ifdef CONFIG_PHY1_ADDR
+	if (edev->index == 1)
+		mask = 1 << getenv_ulong("switch_phy_addr", 10, CONFIG_PHY1_ADDR);
+#endif
+#endif
+
 	phydev = phy_find_by_mask(priv->bus, mask, priv->interface);
 	if (!phydev)
 		return -ENODEV;
