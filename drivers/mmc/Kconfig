@@ -57,6 +57,12 @@ config MSM_SDHCI
           SD 3.0 specifications. Both SD and eMMC devices are supported.
 	  Card-detect gpios are not supported.
 
+config ARASAN_SDHCI
+	bool "Arasan Generic SDHCI controller support"
+	depends on DM_MMC && OF_CONTROL
+	help
+	  Support for Arasan SDHCI host controller on all platforms
+
 config ATMEL_SDHCI
 	bool "Atmel SDHCI controller support"
 	depends on DM_MMC && BLK && DM_MMC_OPS && ARCH_AT91
