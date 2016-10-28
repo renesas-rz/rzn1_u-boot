@@ -47,6 +47,13 @@ config CADENCE_QSPI
 	  used to access the SPI NOR flash on platforms embedding this
 	  Cadence IP core.
 
+config CADENCE_QSPI_MMAP
+	bool "Enable direct (memory mapped) mode for Cadence QSPI driver"
+	depends on CADENCE_QSPI
+	help
+	  The IP can be configured to support direct (memory mapped) or indirect
+	  modes. If your hardware supports direct mode, you should use it.
+
 config DESIGNWARE_SPI
 	bool "Designware SPI driver"
 	help

@@ -293,6 +293,9 @@ void cadence_qspi_apb_controller_init(struct cadence_spi_platdata *plat)
 	/* Disable all interrupts */
 	writel(0, plat->regbase + CQSPI_REG_IRQMASK);
 
+	if (plat->use_mmap)
+		cadence_qspi_apb_controller_init_mmap(plat);
+
 	cadence_qspi_apb_controller_enable(plat->regbase);
 }
 
@@ -422,6 +425,7 @@ int cadence_qspi_apb_command_write(void *reg_base, unsigned int cmdlen,
 	return cadence_qspi_apb_exec_flash_cmd(reg_base, reg);
 }
 
+#if !defined(CONFIG_CADENCE_QSPI_MMAP)
 /* Opcode + Address (3/4 bytes) + dummy bytes (0-4 bytes) */
 int cadence_qspi_apb_indirect_read_setup(struct cadence_spi_platdata *plat,
 	unsigned int cmdlen, unsigned int rx_width, const u8 *cmdbuf)
@@ -683,6 +687,7 @@ failwr:
 	bounce_buffer_stop(&bb);
 	return ret;
 }
+#endif	/* !defined(CONFIG_CADENCE_QSPI_MMAP) */
 
 void cadence_qspi_apb_enter_xip(void *reg_base, char xip_dummy)
 {

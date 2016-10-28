@@ -89,6 +89,12 @@
 #define	CQSPI_REG_IRQSTATUS			0x40
 #define	CQSPI_REG_IRQMASK			0x44
 
+#define	CQSPI_REG_LOWER_WRITE_PROTECT		0x50
+#define	CQSPI_REG_UPPER_WRITE_PROTECT		0x54
+
+#define	CQSPI_REG_WRITE_PROTECT_CTRL		0x58
+#define	CQSPI_REG_WRPROT_ENABLE			BIT(1)
+
 #define	CQSPI_REG_INDIRECTRD			0x60
 #define	CQSPI_REG_INDIRECTRD_START		BIT(0)
 #define	CQSPI_REG_INDIRECTRD_CANCEL		BIT(1)
@@ -145,6 +151,7 @@ struct cadence_spi_platdata {
 	u32		tslch_ns;
 	u32		sram_size;
 	bool		sample_edge_rising;
+	bool		use_mmap;
 };
 
 struct cadence_spi_priv {
@@ -162,6 +169,7 @@ struct cadence_spi_priv {
 
 /* Functions call declaration */
 void cadence_qspi_apb_controller_init(struct cadence_spi_platdata *plat);
+void cadence_qspi_apb_controller_init_mmap(struct cadence_spi_platdata *plat);
 void cadence_qspi_apb_controller_enable(void *reg_base_addr);
 void cadence_qspi_apb_controller_disable(void *reg_base_addr);
 
@@ -192,5 +200,7 @@ void cadence_qspi_apb_delay(void *reg_base,
 void cadence_qspi_apb_enter_xip(void *reg_base, char xip_dummy);
 void cadence_qspi_apb_readdata_capture(void *reg_base,
 	bool bypass, bool edge, unsigned int delay);
+int cadence_spi_xfer_mmap(struct udevice *dev, unsigned int bitlen,
+	const void *dout, void *din, unsigned long flags);
 
 #endif /* __CADENCE_QSPI_H__ */
