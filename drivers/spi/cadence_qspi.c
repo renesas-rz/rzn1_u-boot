@@ -192,12 +192,18 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 	struct udevice *bus = dev->parent;
 	struct cadence_spi_platdata *plat = bus->platdata;
 	struct cadence_spi_priv *priv = dev_get_priv(bus);
+#if !defined(CONFIG_CADENCE_QSPI_MMAP)
 	struct dm_spi_slave_platdata *dm_plat = dev_get_parent_platdata(dev);
+#endif
 	void *base = priv->regbase;
 	u8 *cmd_buf = priv->cmd_buf;
 	size_t data_bytes;
 	int err = 0;
 	u32 mode = CQSPI_STIG_WRITE;
+
+	/* Additional flags used for mmap write protection */
+	if (plat->use_mmap)
+		cadence_spi_xfer_mmap(dev, bitlen, dout, din, flags);
 
 	if (flags & SPI_XFER_BEGIN) {
 		/* copy command to local buffer */
@@ -250,6 +256,7 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 				priv->cmd_len, cmd_buf,
 				data_bytes, dout);
 		break;
+#if !defined(CONFIG_CADENCE_QSPI_MMAP)
 		case CQSPI_INDIRECT_READ:
 			err = cadence_qspi_apb_indirect_read_setup(plat,
 				priv->cmd_len, dm_plat->mode, cmd_buf);
@@ -266,6 +273,7 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 				(plat, data_bytes, dout);
 			}
 		break;
+#endif	/* !defined(CONFIG_CADENCE_QSPI_MMAP) */
 		default:
 			err = -1;
 			break;
@@ -321,6 +329,7 @@ static int cadence_spi_ofdata_to_platdata(struct udevice *bus)
 	plat->tslch_ns = fdtdec_get_int(blob, subnode, "tslch-ns", 20);
 	plat->sample_edge_rising = fdtdec_get_bool(blob, subnode,
 		"sample-edge-rising");
+	plat->use_mmap = fdtdec_get_bool(blob, subnode, "memory-map-write");
 
 	debug("%s: regbase=%p ahbbase=%p max-frequency=%d page-size=%d\n",
 	      __func__, plat->regbase, plat->ahbbase, plat->max_hz,
@@ -341,6 +350,7 @@ static const struct dm_spi_ops cadence_spi_ops = {
 
 static const struct udevice_id cadence_spi_ids[] = {
 	{ .compatible = "cadence,qspi" },
+	{ .compatible = "renesas,rzn1-qspi" },
 	{ }
 };
 
