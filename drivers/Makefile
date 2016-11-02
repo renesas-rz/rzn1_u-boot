@@ -8,6 +8,8 @@ obj-$(CONFIG_$(SPL_)LED)	+= led/
 obj-$(CONFIG_$(SPL_)PINCTRL)	+= pinctrl/
 obj-$(CONFIG_$(SPL_)RAM)	+= ram/
 
+obj-$(CONFIG_CADENCE_DDR_CTRL) += ddr/cadence/
+
 ifdef CONFIG_SPL_BUILD
 
 obj-$(CONFIG_SPL_CRYPTO_SUPPORT) += crypto/
