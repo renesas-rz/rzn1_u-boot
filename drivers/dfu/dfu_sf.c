@@ -66,23 +66,29 @@ static void dfu_free_entity_sf(struct dfu_entity *dfu)
 
 static struct spi_flash *parse_dev(char *devstr)
 {
-	unsigned int bus;
-	unsigned int cs;
+	unsigned int bus = CONFIG_SF_DEFAULT_BUS;
+	unsigned int cs = CONFIG_SF_DEFAULT_CS;
 	unsigned int speed = CONFIG_SF_DEFAULT_SPEED;
 	unsigned int mode = CONFIG_SF_DEFAULT_MODE;
 	char *s, *endp;
 	struct spi_flash *dev;
 
 	s = strsep(&devstr, ":");
-	if (!s || !*s || (bus = simple_strtoul(s, &endp, 0), *endp)) {
-		printf("Invalid SPI bus %s\n", s);
-		return NULL;
+	if (s && *s) {
+		bus = simple_strtoul(s, &endp, 0);
+		if (*endp) {
+			printf("Invalid SPI bus %s\n", s);
+			return NULL;
+		}
 	}
 
 	s = strsep(&devstr, ":");
-	if (!s || !*s || (cs = simple_strtoul(s, &endp, 0), *endp)) {
-		printf("Invalid SPI chip-select %s\n", s);
-		return NULL;
+	if (s && *s) {
+		cs = simple_strtoul(s, &endp, 0);
+		if (*endp) {
+			printf("Invalid SPI chip-select %s\n", s);
+			return NULL;
+		}
 	}
 
 	s = strsep(&devstr, ":");
