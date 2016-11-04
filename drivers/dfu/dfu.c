@@ -17,6 +17,12 @@
 #include <linux/list.h>
 #include <linux/compiler.h>
 
+#ifdef CONFIG_CMD_DFU_EXT
+#define DFU_INFO_NAME "dfu_ext_info"
+#else
+#define DFU_INFO_NAME "dfu_alt_info"
+#endif
+
 static LIST_HEAD(dfu_list);
 static int dfu_alt_num;
 static int alt_num_cnt;
@@ -58,9 +64,9 @@ int dfu_init_env_entities(char *interface, char *devstr)
 #ifdef CONFIG_SET_DFU_ALT_INFO
 	set_dfu_alt_info(interface, devstr);
 #endif
-	str_env = getenv("dfu_alt_info");
+	str_env = getenv(DFU_INFO_NAME);
 	if (!str_env) {
-		error("\"dfu_alt_info\" env variable not defined!\n");
+		error("\"" DFU_INFO_NAME "\" env variable not defined!\n");
 		return -EINVAL;
 	}
 
@@ -472,11 +478,26 @@ int dfu_config_entities(char *env, char *interface, char *devstr)
 	for (i = 0; i < dfu_alt_num; i++) {
 
 		s = strsep(&env, ";");
+#ifdef CONFIG_CMD_DFU_EXT
+		interface = strsep(&s, " ");
+		devstr = NULL;
+		/* has a device been specified? */
+		if (strpbrk(s, ":")) {
+			devstr = s;
+			strsep(&s, " ");
+		}
+		debug("%s interface %s:%s, remains:%s\n", __func__,
+			interface, devstr, s);
+#endif
 		ret = dfu_fill_entity(&dfu[i], s, alt_num_cnt, interface,
 				      devstr);
 		if (ret) {
+#ifdef CONFIG_CMD_DFU_EXT
+			continue; /* it's OK for a probe to fail */
+#else
 			free(dfu);
 			return -1;
+#endif
 		}
 
 		list_add_tail(&dfu[i].list, &dfu_list);
