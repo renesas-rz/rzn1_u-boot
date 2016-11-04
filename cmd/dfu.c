@@ -21,7 +21,7 @@
 
 static int do_dfu(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
-
+#ifndef CONFIG_CMD_DFU_EXT
 	if (argc < 4)
 		return CMD_RET_USAGE;
 
@@ -49,7 +49,27 @@ static int do_dfu(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		dfu_show_entities();
 		goto done;
 	}
+#else
+	/* DFU EXT allows allows us to target multiple interfaces, all info
+	 * about the interfaces is in the 'dfu_ext_info' env var, rather than
+	 * passed in via the dfu command. */
+	char *usb_controller = "";
+	int ret;
 
+	if (argc > 1)
+		usb_controller = argv[1];
+
+	ret = dfu_init_env_entities(NULL, NULL);
+	if (ret)
+		goto done;
+
+	ret = CMD_RET_SUCCESS;
+	if (argc > 1 && !strcmp(argv[1], "list")) {
+		dfu_show_entities();
+		goto done;
+	}
+
+#endif /* CONFIG_CMD_DFU_EXT */
 	int controller_index = simple_strtoul(usb_controller, NULL, 0);
 
 	run_usb_dnl_gadget(controller_index, "usb_dnl_dfu");
@@ -61,6 +81,7 @@ done:
 
 U_BOOT_CMD(dfu, CONFIG_SYS_MAXARGS, 1, do_dfu,
 	"Device Firmware Upgrade",
+#ifndef CONFIG_CMD_DFU_EXT
 	"<USB_controller> <interface> <dev> [list]\n"
 	"  - device firmware upgrade via <USB_controller>\n"
 	"    on device <dev>, attached to interface\n"
@@ -73,4 +94,8 @@ U_BOOT_CMD(dfu, CONFIG_SYS_MAXARGS, 1, do_dfu,
 	"    <interface>\n"
 	"    [<addr>] - address where FIT image has been stored\n"
 #endif
+#else
+	" [list]\n"
+	"    [list] - list available DFU settings\n"
+#endif /* CONFIG_CMD_DFU_EXT */
 );

@@ -437,6 +437,14 @@ config CMD_DFU
 	  Enables the command "dfu" which is used to have U-Boot create a DFU
 	  class device via USB.
 
+config CMD_DFU_EXT
+	bool "dfu extended"
+	depends on CMD_DFU
+	help
+	  Changes the "dfu" command to support multiple dfu targets, e.g. nand
+	  and spi flash. To use this, the "dfu_ext_info" env var is populated
+	  with a list of semi-colon seperated targets.
+
 config CMD_USB_MASS_STORAGE
 	bool "UMS usb mass storage"
 	help
