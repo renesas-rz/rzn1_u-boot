@@ -374,6 +374,7 @@ static int do_mem_cp(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	ulong	addr, dest, count, bytes;
 	int	size;
+	bool	nosize = false;
 	const void *src;
 	void *buf;
 
@@ -382,8 +383,13 @@ static int do_mem_cp(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 	/* Check for size specification.
 	*/
-	if ((size = cmd_get_data_size(argv[0], 4)) < 0)
+	if ((size = cmd_get_data_size(argv[0], 0)) < 0)
 		return 1;
+	/* Check to see if no size was specified */
+	if (size == 0) {
+		size = 4;
+		nosize = true;
+	}
 
 	addr = simple_strtoul(argv[1], NULL, 16);
 	addr += base_address;
@@ -468,6 +474,13 @@ static int do_mem_cp(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	bytes = size * count;
 	buf = map_sysmem(dest, bytes);
 	src = map_sysmem(addr, bytes);
+
+	/* If size wasn't specified use memcpy for speed */
+	if (nosize) {
+		memcpy((void *)dest, (void *)addr, count*size);
+		return 0;
+	}
+
 	while (count-- > 0) {
 		if (size == 4)
 			*((u32 *)buf) = *((u32  *)src);
