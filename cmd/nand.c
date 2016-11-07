@@ -286,7 +286,7 @@ static void nand_print_and_set_info(int idx)
 	struct mtd_info *mtd = nand_info[idx];
 	struct nand_chip *chip = mtd_to_nand(mtd);
 
-	printf("Device %d: ", idx);
+	printf("Device %d (%s %s): ", idx, chip->onfi_params.manufacturer, chip->onfi_params.model);
 	if (chip->numchips > 1)
 		printf("%dx ", chip->numchips);
 	printf("%s, sector size %u KiB\n",
@@ -297,6 +297,12 @@ static void nand_print_and_set_info(int idx)
 	printf("  subpagesize %8d b\n", chip->subpagesize);
 	printf("  options     0x%8x\n", chip->options);
 	printf("  bbt options 0x%8x\n", chip->bbt_options);
+
+	printf("  ECC BCH%d, block size        %d b\n", chip->ecc.strength, chip->ecc.size);
+	printf("  ECC bytes per block          %d b\n", chip->ecc.bytes);
+#if defined(RZN1_NAND_OOB_FS_BYTES)
+	printf("  ECC reserved for file system %d b\n", RZN1_NAND_OOB_FS_BYTES);
+#endif
 
 	/* Set geometry info */
 	setenv_hex("nand_writesize", mtd->writesize);
