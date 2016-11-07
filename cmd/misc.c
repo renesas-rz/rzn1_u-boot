@@ -71,6 +71,7 @@ static int do_timer(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 	if (!strcmp(argv[1], "get")) {
 		ulong msecs = get_timer(start) * 1000 / CONFIG_SYS_HZ;
+		setenv_ulong("milliseconds", msecs);
 		printf("%ld.%03d\n", msecs / 1000, (int)(msecs % 1000));
 	}
 
