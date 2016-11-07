@@ -286,12 +286,19 @@ static int initr_malloc(void)
 {
 	ulong malloc_start;
 
+#ifdef CONFIG_SYS_STAY_IN_SRAM
+	/* In the case we do not relocate u-boot code, we can't just
+	 * plonk an address from thin air, we use the one that has been
+	 * calculated with the other bits at the top of memory */
+	malloc_start = gd->malloc_pool_addr;
+#else
 #ifdef CONFIG_SYS_MALLOC_F_LEN
 	debug("Pre-reloc malloc() used %#lx bytes (%ld KB)\n", gd->malloc_ptr,
 	      gd->malloc_ptr / 1024);
 #endif
 	/* The malloc area is immediately below the monitor copy in DRAM */
 	malloc_start = gd->relocaddr - TOTAL_MALLOC_LEN;
+#endif
 	mem_malloc_init((ulong)map_sysmem(malloc_start, TOTAL_MALLOC_LEN),
 			TOTAL_MALLOC_LEN);
 	return 0;

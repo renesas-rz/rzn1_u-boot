@@ -361,11 +361,15 @@ static int setup_dest_addr(void)
 	 */
 	gd->ram_size = board_reserve_ram_top(gd->ram_size);
 
+#ifdef CONFIG_SYS_STAY_IN_SRAM
+	gd->ram_top = CONFIG_SYS_SRAM_BASE + CONFIG_SYS_SRAM_SIZE;
+#else
 #ifdef CONFIG_SYS_SDRAM_BASE
 	gd->ram_top = CONFIG_SYS_SDRAM_BASE;
 #endif
 	gd->ram_top += get_effective_memsize();
 	gd->ram_top = board_get_usable_ram_top(gd->mon_len);
+#endif /* CONFIG_SYS_STAY_IN_SRAM */
 	gd->relocaddr = gd->ram_top;
 	debug("Ram top: %08lX\n", (ulong)gd->ram_top);
 #if defined(CONFIG_MP) && (defined(CONFIG_MPC86xx) || defined(CONFIG_E500))
@@ -513,6 +517,9 @@ static int reserve_trace(void)
 
 static int reserve_uboot(void)
 {
+#ifdef CONFIG_SYS_STAY_IN_SRAM
+	debug("Skipping u-boot relocate\n");
+#else
 	/*
 	 * reserve memory for U-Boot code, data & bss
 	 * round down to next 4 kB limit
@@ -526,6 +533,7 @@ static int reserve_uboot(void)
 
 	debug("Reserving %ldk for U-Boot at: %08lx\n", gd->mon_len >> 10,
 	      gd->relocaddr);
+#endif
 
 	gd->start_addr_sp = gd->relocaddr;
 
@@ -537,6 +545,10 @@ static int reserve_uboot(void)
 static int reserve_malloc(void)
 {
 	gd->start_addr_sp = gd->start_addr_sp - TOTAL_MALLOC_LEN;
+#ifdef CONFIG_SYS_STAY_IN_SRAM
+	gd->malloc_pool_addr = gd->start_addr_sp;
+	debug("malloc pool at: %08lx\n", gd->malloc_pool_addr);
+#endif
 	debug("Reserving %dk for malloc() at: %08lx\n",
 			TOTAL_MALLOC_LEN >> 10, gd->start_addr_sp);
 	return 0;
@@ -742,6 +754,13 @@ static int reloc_fdt(void)
 
 static int setup_reloc(void)
 {
+#ifdef CONFIG_SYS_STAY_IN_SRAM
+	extern char __image_copy_start[];
+	debug("Skipped relocation to %lx\n", (ulong)__image_copy_start);
+	gd->relocaddr = CONFIG_SYS_TEXT_BASE;
+	debug("Free ram between u-boot and stack: %ld\n",
+		gd->start_addr_sp - gd->relocaddr + gd->mon_len);
+#else
 	if (gd->flags & GD_FLG_SKIP_RELOC) {
 		debug("Skipping relocation due to flag\n");
 		return 0;
@@ -757,9 +776,10 @@ static int setup_reloc(void)
 	gd->reloc_off = gd->relocaddr - (CONFIG_SYS_TEXT_BASE + 0x400);
 #endif
 #endif
+	debug("Relocation Offset is: %08lx\n", gd->reloc_off);
+#endif
 	memcpy(gd->new_gd, (char *)gd, sizeof(gd_t));
 
-	debug("Relocation Offset is: %08lx\n", gd->reloc_off);
 	debug("Relocating to %08lx, new gd at %08lx, sp at %08lx\n",
 	      gd->relocaddr, (ulong)map_to_sysmem(gd->new_gd),
 	      gd->start_addr_sp);
@@ -768,7 +788,7 @@ static int setup_reloc(void)
 }
 
 /* ARM calls relocate_code from its crt0.S */
-#if !defined(CONFIG_ARM) && !defined(CONFIG_SANDBOX)
+#if !defined(CONFIG_ARM) && !defined(CONFIG_SANDBOX) && !defined(CONFIG_SYS_STAY_IN_SRAM)
 
 static int jump_to_copy(void)
 {

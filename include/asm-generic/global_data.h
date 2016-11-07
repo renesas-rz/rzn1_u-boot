@@ -59,6 +59,11 @@ typedef struct global_data {
 	unsigned long start_addr_sp;	/* start_addr_stackpointer */
 	unsigned long reloc_off;
 	struct global_data *new_gd;	/* relocated global data */
+#ifdef CONFIG_SYS_STAY_IN_SRAM
+	/* if we don't relocate uboot, we cannot hardcode the malloc
+	 * pool to be under the uboot code, it's silly */
+	unsigned long malloc_pool_addr;
+#endif
 
 #ifdef CONFIG_DM
 	struct udevice	*dm_root;	/* Root instance for Driver Model */

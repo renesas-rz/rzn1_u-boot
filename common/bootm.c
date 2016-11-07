@@ -60,8 +60,10 @@ static void boot_start_lmb(bootm_headers_t *images)
 
 	lmb_add(&images->lmb, (phys_addr_t)mem_start, mem_size);
 
+#if !defined(CONFIG_SYS_STAY_IN_SRAM)
 	arch_lmb_reserve(&images->lmb);
 	board_lmb_reserve(&images->lmb);
+#endif
 }
 #else
 #define lmb_reserve(lmb, base, size)
