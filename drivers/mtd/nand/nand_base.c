@@ -3735,6 +3735,34 @@ ident_done:
 	if (mtd->writesize > 512 && chip->cmdfunc == nand_command)
 		chip->cmdfunc = nand_command_lp;
 
+	/* Determine if the device has on-chip ECC and is enabled */
+	if (chip->onfi_params.jedec_id == NAND_MFR_MICRON) {
+		switch (id_data[1])
+		{
+		case 0xf1:	/* MT29F1G08ABADA */
+		case 0xa1:	/* MT29F1G08ABBDA */
+		case 0xb1:	/* MT29F1G16ABBDA */
+
+		case 0xaa:	/* MT29F2G08ABBEA */
+		case 0xba:	/* MT29F2G16ABBEA */
+		case 0xda:	/* MT29F2G08ABAEA */
+		case 0xca:	/* MT29F2G16ABAEA */
+
+		case 0xdc:	/* MT29F4G08ABADA */
+		case 0xcc:	/* MT29F4G16ABADA */
+		case 0xac:	/* MT29F4G08ABBDA */
+		case 0xbc:	/* MT29F4G16ABBDA */
+		case 0xa3:	/* MT29F8G08ADBDA */
+		case 0xb3:	/* MT29F8G16ADBDA */
+		case 0xd3:	/* MT29F8G08ADADA / MT29F16G08AJADA */
+		case 0xc3:	/* MT29F8G16ADADA */
+
+			if (id_data[4] & 0x80) 
+				chip->ecc_on_chip = 1;
+			break;
+		}
+	}
+
 	pr_info("device found, Manufacturer ID: 0x%02x, Chip ID: 0x%02x\n",
 		*maf_id, *dev_id);
 
