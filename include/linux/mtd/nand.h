@@ -645,6 +645,7 @@ struct nand_buffers {
  * @ecc_step_ds:	[INTERN] ECC step required by the @ecc_strength_ds,
  *                      also from the datasheet. It is the recommended ECC step
  *			size, if known; if unknown, set to zero.
+ * @ecc_on_chip:	[INTERN] ECC is handled internally by the Flash chip.
  * @onfi_timing_mode_default: [INTERN] default ONFI timing mode. This field is
  *			      either deduced from the datasheet if the NAND
  *			      chip is not ONFI compliant or set to 0 if it is
@@ -735,6 +736,7 @@ struct nand_chip {
 	uint8_t bits_per_cell;
 	uint16_t ecc_strength_ds;
 	uint16_t ecc_step_ds;
+	bool ecc_on_chip;
 	int onfi_timing_mode_default;
 	int badblockpos;
 	int badblockbits;
