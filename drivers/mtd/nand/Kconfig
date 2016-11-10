@@ -6,6 +6,13 @@ config SYS_NAND_SELF_INIT
 	  This option, if enabled, provides more flexible and linux-like
 	  NAND initialization process.
 
+config NAND_CADENCE_EVATRONIX
+	bool "Configure Cadence/Evatronix Nand"
+	help
+	  This enables Nand driver support for Cadence (ex Evatronix) NAND flash
+	  controller. This uses the hardware ECC for read and
+	  write operations.
+
 config NAND_DENALI
 	bool "Support Denali NAND controller"
 	select SYS_NAND_SELF_INIT
