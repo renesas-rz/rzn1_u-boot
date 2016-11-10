@@ -44,6 +44,7 @@ obj-$(CONFIG_NAND_ECC_BCH) += nand_bch.o
 obj-$(CONFIG_NAND_ATMEL) += atmel_nand.o
 obj-$(CONFIG_NAND_ARASAN) += arasan_nfc.o
 obj-$(CONFIG_DRIVER_NAND_BFIN) += bfin_nand.o
+obj-$(CONFIG_NAND_CADENCE_EVATRONIX) += evatronix_nand.o
 obj-$(CONFIG_NAND_DAVINCI) += davinci_nand.o
 obj-$(CONFIG_NAND_DENALI) += denali.o
 obj-$(CONFIG_NAND_FSL_ELBC) += fsl_elbc_nand.o
@@ -72,6 +73,7 @@ obj-$(CONFIG_NAND_ZYNQ) += zynq_nand.o
 
 else  # minimal SPL drivers
 
+obj-$(CONFIG_NAND_CADENCE_EVATRONIX) += evatronix_nand.o
 obj-$(CONFIG_NAND_FSL_ELBC) += fsl_elbc_spl.o
 obj-$(CONFIG_NAND_FSL_IFC) += fsl_ifc_spl.o
 obj-$(CONFIG_NAND_MXC) += mxc_nand_spl.o
