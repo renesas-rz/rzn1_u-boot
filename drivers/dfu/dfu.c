@@ -77,10 +77,12 @@ int dfu_init_env_entities(char *interface, char *devstr)
 
 static unsigned char *dfu_buf;
 static unsigned long dfu_buf_size;
+unsigned char *dfu_read_buf;
 
 unsigned char *dfu_free_buf(void)
 {
 	free(dfu_buf);
+	free(dfu_read_buf);
 	dfu_buf = NULL;
 	return dfu_buf;
 }
@@ -108,9 +110,13 @@ unsigned char *dfu_get_buf(struct dfu_entity *dfu)
 		dfu_buf_size = dfu->max_buf_size;
 
 	dfu_buf = memalign(CONFIG_SYS_CACHELINE_SIZE, dfu_buf_size);
-	if (dfu_buf == NULL)
+	dfu_read_buf = memalign(CONFIG_SYS_CACHELINE_SIZE, dfu_buf_size);
+
+	if (dfu_buf == NULL || dfu_read_buf == NULL) {
 		printf("%s: Could not memalign 0x%lx bytes\n",
 		       __func__, dfu_buf_size);
+		dfu_free_buf();
+	}
 
 	return dfu_buf;
 }
