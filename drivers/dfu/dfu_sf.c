@@ -161,6 +161,12 @@ int dfu_fill_entity_sf(struct dfu_entity *dfu, char *devstr, char *s)
 		dfu->data.sf.start = simple_strtoul(s, &s, 16);
 		s++;
 		dfu->data.sf.size = simple_strtoul(s, &s, 16);
+		if (dfu->data.sf.size == 0) {
+			dfu->data.sf.size = dfu->data.sf.dev->size -
+							dfu->data.sf.start;
+			debug("DFU:%s calculated size is 0x%llx bytes\n",
+				dfu->name, dfu->data.sf.size);
+		}
 	} else {
 		printf("%s: Memory layout (%s) not supported!\n", __func__, st);
 		spi_flash_free(dfu->data.sf.dev);
