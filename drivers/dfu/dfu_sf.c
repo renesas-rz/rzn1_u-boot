@@ -12,6 +12,8 @@
 #include <spi.h>
 #include <spi_flash.h>
 
+extern unsigned char *dfu_read_buf;
+
 static long dfu_get_medium_size_sf(struct dfu_entity *dfu)
 {
 	return dfu->data.sf.size;
@@ -34,12 +36,33 @@ static int dfu_write_medium_sf(struct dfu_entity *dfu,
 		u64 offset, void *buf, long *len)
 {
 	int ret;
+	int i;
+	u8 *buf8 = buf;
 
-	ret = spi_flash_erase(dfu->data.sf.dev,
-			      find_sector(dfu, dfu->data.sf.start, offset),
-			      roundup(*len, dfu->data.sf.dev->sector_size));
+	/* Erase and write are slow, so avoid if possible */
+	ret = dfu_read_medium_sf(dfu, offset, dfu_read_buf, len);
 	if (ret)
 		return ret;
+
+	if (memcmp(dfu_read_buf, buf, *len) == 0) {
+		debug("%s: offset %lld, skip erase,write\n", __func__, offset);
+		return 0;
+	}
+
+	/* Only erase the page if needed, i.e. setting any bit. */
+	/* WARNING: this code assumes that erase sets the data to 0xFF */
+	for (i = 0; i < *len; i++) {
+		if (buf8[i] & (buf8[i] ^ dfu_read_buf[i])) {
+			ret = spi_flash_erase(dfu->data.sf.dev,
+				find_sector(dfu, dfu->data.sf.start, offset),
+				roundup(*len, dfu->data.sf.dev->sector_size));
+			if (ret)
+				return ret;
+			break;
+		}
+	}
+	if (i == *len)
+		debug("%s: offset %lld, skip erase\n", __func__, offset);
 
 	ret = spi_flash_write(dfu->data.sf.dev, dfu->data.sf.start + offset,
 			      *len, buf);
