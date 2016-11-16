@@ -114,6 +114,10 @@ __weak void dram_bank_mmu_setup(int bank)
 	}
 }
 
+__weak void post_mmu_setup(void)
+{
+}
+
 /* to activate the MMU we need to set up virtual memory: use 1M areas */
 static inline void mmu_setup(void)
 {
@@ -125,6 +129,7 @@ static inline void mmu_setup(void)
 	for (i = 0; i < ((4096ULL * 1024 * 1024) >> MMU_SECTION_SHIFT); i++)
 		set_section_dcache(i, DCACHE_OFF);
 
+	post_mmu_setup();
 	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
 		dram_bank_mmu_setup(i);
 	}
