@@ -22,6 +22,10 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#if !defined(CONFIG_SPI_FLASH_READ_QUAD_CMD)
+#define CONFIG_SPI_FLASH_READ_QUAD_CMD CMD_READ_QUAD_OUTPUT_FAST
+#endif
+
 static void spi_flash_addr(struct spi_flash *flash, u32 addr, u8 *cmd)
 {
 	/* cmd[0] is actual command */
@@ -1098,7 +1102,7 @@ int spi_flash_scan(struct spi_flash *flash)
 	if (spi->mode & SPI_RX_SLOW)
 		flash->read_cmd = CMD_READ_ARRAY_SLOW;
 	else if (spi->mode & SPI_RX_QUAD && info->flags & RD_QUAD)
-		flash->read_cmd = CMD_READ_QUAD_OUTPUT_FAST;
+		flash->read_cmd = CONFIG_SPI_FLASH_READ_QUAD_CMD;
 	else if (spi->mode & SPI_RX_DUAL && info->flags & RD_DUAL)
 		flash->read_cmd = CMD_READ_DUAL_OUTPUT_FAST;
 
