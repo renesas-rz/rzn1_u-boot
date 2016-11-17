@@ -38,6 +38,7 @@ obj-$(if $(filter mx5,$(SOC)),y) += mx5/
 obj-$(CONFIG_MX6) += mx6/
 obj-$(CONFIG_MX7) += mx7/
 obj-$(CONFIG_RMOBILE) += rmobile/
+obj-$(CONFIG_ARCH_RZN1) += rzn1/
 obj-$(if $(filter stv0991,$(SOC)),y) += stv0991/
 obj-$(CONFIG_ARCH_SUNXI) += sunxi/
 obj-$(CONFIG_VF610) += vf610/
