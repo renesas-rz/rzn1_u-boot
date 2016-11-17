@@ -11,7 +11,15 @@ choice
 	prompt "RZN1 board select"
 	optional
 
+config TARGET_RENESAS_RZN1D400_DB
+	bool "Renesas rzn1d400-db"
+	select SUPPORT_SPL
+
+endchoice
+
 config SYS_SOC
 	default "rzn1"
+
+source "board/renesas/rzn1d400-db/Kconfig"
 
 endif
