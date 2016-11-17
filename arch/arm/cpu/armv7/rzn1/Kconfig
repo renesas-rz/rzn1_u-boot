@@ -1,0 +1,17 @@
+if ARCH_RZN1
+
+config RZN1D
+	bool
+	default y
+
+config RZN1S
+	bool
+
+choice
+	prompt "RZN1 board select"
+	optional
+
+config SYS_SOC
+	default "rzn1"
+
+endif

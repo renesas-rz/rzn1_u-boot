@@ -157,6 +157,29 @@ config ARCH_OMAP2
 	select CPU_V7
 	select SUPPORT_SPL
 
+config ARCH_RZN1
+	bool
+	select CADENCE_QSPI if SPI_FLASH
+	select CADENCE_QSPI_MMAP if SPI_FLASH
+	select CMD_SF if SPI_FLASH
+	select OF_CONTROL
+	select DM
+	select DM_GPIO
+	select DM_I2C
+	select DM_MMC
+	select DM_SERIAL
+	select DM_SPI
+	select DM_SPI_FLASH
+	select DWAPB_GPIO
+	select SPL_DM if SPL
+	select SPL_LIBCOMMON_SUPPORT if SPL
+	select SPL_LIBGENERIC_SUPPORT if SPL
+	select SPL_OF_CONTROL if SPL
+	select SPL_SYS_MALLOC_SIMPLE if SPL
+	select SYS_I2C_DW
+	select SYS_NS16550
+	select USB_GADGET_RZN1 if USB_GADGET
+
 config ARM64_SUPPORT_AARCH32
 	bool "ARM64 system support AArch32 execution state"
 	default y if ARM64 && !TARGET_THUNDERX_88XX
@@ -550,6 +573,28 @@ config ARCH_RMOBILE
 	bool "Renesas ARM SoCs"
 	select DM
 	select DM_SERIAL
+
+config ARCH_RZN1D
+	bool "Renesas RZ/N1D SoCs"
+	select ARCH_RZN1
+	select CPU_V7
+	select CPU_V7_HAS_NONSEC
+	select CPU_V7_HAS_VIRT
+	select SUPPORT_SPL
+
+config ARCH_RZN1S
+	bool "Renesas RZ/N1S SoCs"
+	select ARCH_RZN1
+	select CPU_V7
+	select CPU_V7_HAS_NONSEC
+	select CPU_V7_HAS_VIRT
+	select SUPPORT_SPL
+
+config ARCH_RZN1L
+	bool "Renesas RZ/N1L Cortex M3 SoCs"
+	select ARCH_RZN1
+	select CPU_V7M
+	select SUPPORT_SPL
 
 config TARGET_S32V234EVB
 	bool "Support s32v234evb"
@@ -956,6 +1001,8 @@ source "arch/arm/cpu/armv7/mx6/Kconfig"
 source "arch/arm/cpu/armv7/mx5/Kconfig"
 
 source "arch/arm/mach-omap2/Kconfig"
+
+source "arch/arm/cpu/armv7/rzn1/Kconfig"
 
 source "arch/arm/cpu/armv8/fsl-layerscape/Kconfig"
 

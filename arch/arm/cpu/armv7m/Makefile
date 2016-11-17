@@ -9,3 +9,8 @@ extra-y := start.o
 obj-y += cpu.o
 
 obj-$(CONFIG_SYS_ARCH_TIMER) += systick-timer.o
+
+# Re-use the RZ/N1 armv7 code
+obj-$(CONFIG_ARCH_RZN1) += ../armv7/rzn1/
+
+
