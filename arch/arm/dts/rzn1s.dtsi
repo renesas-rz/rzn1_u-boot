@@ -1,0 +1,34 @@
+/*
+ * Device Tree Source for the RZ/N1S devices.
+ *
+ * Copyright (C) 2016 Renesas Electronics Europe Ltd
+ *
+ * This file is licensed under the terms of the GNU General Public License
+ * version 2.  This program is licensed "as is" without any warranty of any
+ * kind, whether express or implied.
+ */
+
+#include "rzn1.dtsi"
+
+/ {
+	compatible = "renesas,rzn1s";
+
+	aliases {
+		spi1 = &qspi1;
+	};
+
+	bus {
+		qspi1: spi@RZN1_QSPI1_BASE {
+			compatible = "renesas,rzn1-qspi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <RZN1_QSPI1_BASE RZN1_QSPI_SIZE
+				RZN1_V_QSPI1_BASE RZN1_V_QSPI_SIZE>;
+			reg-names = "qspi", "qspi-mapping";
+			interrupts = <GIC_SPI RZN1_IRQ_QSPI1 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hclk_qspi1>, <&clk_qspi1>;
+			clock-names = "flexway", "pclk";
+			status = "disabled";
+		};
+	};
+};
