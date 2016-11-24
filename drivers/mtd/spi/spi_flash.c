@@ -328,6 +328,7 @@ int spi_flash_write_common(struct spi_flash *flash, const u8 *cmd,
 	return ret;
 }
 
+#if !defined(CONFIG_SPL_BUILD)
 int spi_flash_cmd_erase_ops(struct spi_flash *flash, u32 offset, size_t len)
 {
 	u32 erase_size, erase_addr;
@@ -469,6 +470,7 @@ int spi_flash_cmd_write_ops(struct spi_flash *flash, u32 offset,
 
 	return ret;
 }
+#endif /* !defined(CONFIG_SPL_BUILD) */
 
 int spi_flash_read_common(struct spi_flash *flash, const u8 *cmd,
 		size_t cmd_len, void *data, size_t data_len)

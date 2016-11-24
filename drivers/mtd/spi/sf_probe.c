@@ -119,6 +119,7 @@ static int spi_flash_std_read(struct udevice *dev, u32 offset, size_t len,
 	return spi_flash_cmd_read_ops(flash, offset, len, buf);
 }
 
+#if !defined(CONFIG_SPL_BUILD)
 static int spi_flash_std_write(struct udevice *dev, u32 offset, size_t len,
 			const void *buf)
 {
@@ -142,6 +143,7 @@ static int spi_flash_std_erase(struct udevice *dev, u32 offset, size_t len)
 
 	return spi_flash_cmd_erase_ops(flash, offset, len);
 }
+#endif
 
 static int spi_flash_std_probe(struct udevice *dev)
 {
@@ -158,8 +160,10 @@ static int spi_flash_std_probe(struct udevice *dev)
 
 static const struct dm_spi_flash_ops spi_flash_std_ops = {
 	.read = spi_flash_std_read,
+#if !defined(CONFIG_SPL_BUILD)
 	.write = spi_flash_std_write,
 	.erase = spi_flash_std_erase,
+#endif
 };
 
 static const struct udevice_id spi_flash_std_ids[] = {
