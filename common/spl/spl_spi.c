@@ -74,6 +74,14 @@ static int spl_spi_load_image(struct spl_image_info *spl_image,
 	struct image_header header;
 
 	/*
+	 * Skip loading the mkimage header. This is only necessary for block
+	 * based storage systems where the API requires loading whole blocks
+	 * into aligned destinations. The SF layer can load any amount of data
+	 * from flash and store it anywhere.
+	 */
+	spl_image->flags |= SPL_COPY_PAYLOAD_ONLY;
+
+	/*
 	 * Load U-Boot image from SPI flash into RAM
 	 */
 
@@ -113,7 +121,8 @@ static int spl_spi_load_image(struct spl_image_info *spl_image,
 			err = spl_parse_image_header(spl_image, &header);
 			if (err)
 				return err;
-			err = spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS,
+			err = spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS
+					     + sizeof(header),
 					     spl_image->size,
 					     (void *)spl_image->load_addr);
 		}
