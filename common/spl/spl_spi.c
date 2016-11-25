@@ -71,7 +71,7 @@ static int spl_spi_load_image(struct spl_image_info *spl_image,
 {
 	int err = 0;
 	struct spi_flash *flash;
-	struct image_header *header;
+	struct image_header header;
 
 	/*
 	 * Load U-Boot image from SPI flash into RAM
@@ -86,16 +86,13 @@ static int spl_spi_load_image(struct spl_image_info *spl_image,
 		return -ENODEV;
 	}
 
-	/* use CONFIG_SYS_TEXT_BASE as temporary storage area */
-	header = (struct image_header *)(CONFIG_SYS_TEXT_BASE);
-
 #ifdef CONFIG_SPL_OS_BOOT
-	if (spl_start_uboot() || spi_load_image_os(spl_image, flash, header))
+	if (spl_start_uboot() || spi_load_image_os(spl_image, flash, &header))
 #endif
 	{
 		/* Load u-boot, mkimage header is 64 bytes. */
 		err = spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS,
-				     sizeof(*header), (void *)header);
+				     sizeof(header), (void *)&header);
 		if (err)
 			return err;
 
@@ -111,9 +108,9 @@ static int spl_spi_load_image(struct spl_image_info *spl_image,
 			load.read = spl_spi_fit_read;
 			err = spl_load_simple_fit(spl_image, &load,
 						  CONFIG_SYS_SPI_U_BOOT_OFFS,
-						  header);
+						  &header);
 		} else {
-			err = spl_parse_image_header(spl_image, header);
+			err = spl_parse_image_header(spl_image, &header);
 			if (err)
 				return err;
 			err = spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS,
