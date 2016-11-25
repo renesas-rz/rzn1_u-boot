@@ -27,7 +27,7 @@ static int spi_load_image_os(struct spl_image_info *spl_image,
 	int err;
 
 	/* Read for a header, parse or error out. */
-	spi_flash_read(flash, CONFIG_SYS_SPI_KERNEL_OFFS, 0x40,
+	spi_flash_read(flash, CONFIG_SYS_SPI_KERNEL_OFFS, sizeof(*header),
 		       (void *)header);
 
 	if (image_get_magic(header) != IH_MAGIC)
@@ -94,8 +94,8 @@ static int spl_spi_load_image(struct spl_image_info *spl_image,
 #endif
 	{
 		/* Load u-boot, mkimage header is 64 bytes. */
-		err = spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS, 0x40,
-				     (void *)header);
+		err = spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS,
+				     sizeof(*header), (void *)header);
 		if (err)
 			return err;
 
