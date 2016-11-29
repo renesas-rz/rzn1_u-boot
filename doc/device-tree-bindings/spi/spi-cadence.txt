@@ -26,3 +26,5 @@ connected flash properties
 			  select (n_ss_out).
 - tslch-ns		: Delay in master reference clocks between setting
 			  n_ss_out low and first bit transfer
+- sample-edge-rising	: Data outputs from flash memory will be sampled on the
+			  rising edge. Default is falling edge.
