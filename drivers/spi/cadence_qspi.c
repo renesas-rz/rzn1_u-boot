@@ -49,7 +49,7 @@ static int spi_calibration(struct udevice *bus, uint hz)
 	cadence_spi_write_speed(bus, 1000000);
 
 	/* configure the read data capture delay register to 0 */
-	cadence_qspi_apb_readdata_capture(base, 1, 0);
+	cadence_qspi_apb_readdata_capture(base, true, 0);
 
 	/* Enable QSPI */
 	cadence_qspi_apb_controller_enable(base);
@@ -69,7 +69,7 @@ static int spi_calibration(struct udevice *bus, uint hz)
 		cadence_qspi_apb_controller_disable(base);
 
 		/* reconfigure the read data capture delay register */
-		cadence_qspi_apb_readdata_capture(base, 1, i);
+		cadence_qspi_apb_readdata_capture(base, true, i);
 
 		/* Enable back QSPI */
 		cadence_qspi_apb_controller_enable(base);
@@ -105,7 +105,8 @@ static int spi_calibration(struct udevice *bus, uint hz)
 	cadence_qspi_apb_controller_disable(base);
 
 	/* configure the final value for read data capture delay register */
-	cadence_qspi_apb_readdata_capture(base, 1, (range_hi + range_lo) / 2);
+	cadence_qspi_apb_readdata_capture(base, true,
+		(range_hi + range_lo) / 2);
 	debug("SF: Read data capture delay calibrated to %i (%i - %i)\n",
 	      (range_hi + range_lo) / 2, range_lo, range_hi);
 
