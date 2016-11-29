@@ -235,7 +235,7 @@ static unsigned int cadence_qspi_wait_idle(void *reg_base)
 }
 
 void cadence_qspi_apb_readdata_capture(void *reg_base,
-				unsigned int bypass, unsigned int delay)
+	bool bypass, unsigned int delay)
 {
 	unsigned int reg;
 	cadence_qspi_apb_controller_disable(reg_base);

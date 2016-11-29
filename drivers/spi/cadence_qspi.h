@@ -72,6 +72,6 @@ void cadence_qspi_apb_delay(void *reg_base,
 	unsigned int tchsh_ns, unsigned int tslch_ns);
 void cadence_qspi_apb_enter_xip(void *reg_base, char xip_dummy);
 void cadence_qspi_apb_readdata_capture(void *reg_base,
-	unsigned int bypass, unsigned int delay);
+	bool bypass, unsigned int delay);
 
 #endif /* __CADENCE_QSPI_H__ */
