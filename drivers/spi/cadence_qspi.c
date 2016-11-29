@@ -39,8 +39,10 @@ static int cadence_spi_write_speed(struct udevice *bus, uint hz)
 /* Calibration sequence to determine the read data capture delay register */
 static int spi_calibration(struct udevice *bus, uint hz)
 {
+	struct cadence_spi_platdata *plat = bus->platdata;
 	struct cadence_spi_priv *priv = dev_get_priv(bus);
 	void *base = priv->regbase;
+	bool edge = plat->sample_edge_rising;
 	u8 opcode_rdid = 0x9F;
 	unsigned int idcode = 0, temp = 0;
 	int err = 0, i, range_lo = -1, range_hi = -1;
@@ -49,7 +51,7 @@ static int spi_calibration(struct udevice *bus, uint hz)
 	cadence_spi_write_speed(bus, 1000000);
 
 	/* configure the read data capture delay register to 0 */
-	cadence_qspi_apb_readdata_capture(base, true, 0);
+	cadence_qspi_apb_readdata_capture(base, true, edge, 0);
 
 	/* Enable QSPI */
 	cadence_qspi_apb_controller_enable(base);
@@ -69,7 +71,7 @@ static int spi_calibration(struct udevice *bus, uint hz)
 		cadence_qspi_apb_controller_disable(base);
 
 		/* reconfigure the read data capture delay register */
-		cadence_qspi_apb_readdata_capture(base, true, i);
+		cadence_qspi_apb_readdata_capture(base, true, edge, i);
 
 		/* Enable back QSPI */
 		cadence_qspi_apb_controller_enable(base);
@@ -105,7 +107,7 @@ static int spi_calibration(struct udevice *bus, uint hz)
 	cadence_qspi_apb_controller_disable(base);
 
 	/* configure the final value for read data capture delay register */
-	cadence_qspi_apb_readdata_capture(base, true,
+	cadence_qspi_apb_readdata_capture(base, true, edge,
 		(range_hi + range_lo) / 2);
 	debug("SF: Read data capture delay calibrated to %i (%i - %i)\n",
 	      (range_hi + range_lo) / 2, range_lo, range_hi);
@@ -317,6 +319,8 @@ static int cadence_spi_ofdata_to_platdata(struct udevice *bus)
 	plat->tsd2d_ns = fdtdec_get_int(blob, subnode, "tsd2d-ns", 255);
 	plat->tchsh_ns = fdtdec_get_int(blob, subnode, "tchsh-ns", 20);
 	plat->tslch_ns = fdtdec_get_int(blob, subnode, "tslch-ns", 20);
+	plat->sample_edge_rising = fdtdec_get_bool(blob, subnode,
+		"sample-edge-rising");
 
 	debug("%s: regbase=%p ahbbase=%p max-frequency=%d page-size=%d\n",
 	      __func__, plat->regbase, plat->ahbbase, plat->max_hz,

@@ -99,6 +99,7 @@
 #define	CQSPI_REG_RD_DATA_CAPTURE_BYPASS	BIT(0)
 #define	CQSPI_REG_RD_DATA_CAPTURE_DELAY_LSB	1
 #define	CQSPI_REG_RD_DATA_CAPTURE_DELAY_MASK	0xF
+#define	CQSPI_REG_RD_DATA_CAPTURE_EDGE		BIT(5)
 
 #define	CQSPI_REG_SIZE				0x14
 #define	CQSPI_REG_SIZE_ADDRESS_LSB		0
@@ -235,7 +236,7 @@ static unsigned int cadence_qspi_wait_idle(void *reg_base)
 }
 
 void cadence_qspi_apb_readdata_capture(void *reg_base,
-	bool bypass, unsigned int delay)
+	bool bypass, bool edge, unsigned int delay)
 {
 	unsigned int reg;
 	cadence_qspi_apb_controller_disable(reg_base);
@@ -246,6 +247,11 @@ void cadence_qspi_apb_readdata_capture(void *reg_base,
 		reg |= CQSPI_REG_RD_DATA_CAPTURE_BYPASS;
 	else
 		reg &= ~CQSPI_REG_RD_DATA_CAPTURE_BYPASS;
+
+	if (edge)
+		reg |= CQSPI_REG_RD_DATA_CAPTURE_EDGE;
+	else
+		reg &= ~CQSPI_REG_RD_DATA_CAPTURE_EDGE;
 
 	reg &= ~(CQSPI_REG_RD_DATA_CAPTURE_DELAY_MASK
 		<< CQSPI_REG_RD_DATA_CAPTURE_DELAY_LSB);
