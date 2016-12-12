@@ -175,6 +175,8 @@ __weak void __noreturn jump_to_image_no_args(struct spl_image_info *spl_image)
 	image_entry();
 }
 
+#ifndef CONFIG_SPL_MULTIIMAGE
+
 #ifndef CONFIG_SPL_LOAD_FIT_ADDRESS
 # define CONFIG_SPL_LOAD_FIT_ADDRESS	0
 #endif
@@ -232,6 +234,7 @@ SPL_LOAD_IMAGE_METHOD("RAM", 0, BOOT_DEVICE_RAM, spl_ram_load_image);
 SPL_LOAD_IMAGE_METHOD("USB DFU", 0, BOOT_DEVICE_DFU, spl_ram_load_image);
 #endif
 #endif
+#endif /* CONFIG_SPL_MULTIIMAGE */
 
 int spl_init(void)
 {
@@ -267,6 +270,7 @@ int spl_init(void)
 	return 0;
 }
 
+#ifndef CONFIG_SPL_MULTIIMAGE
 #ifndef BOOT_DEVICE_NONE
 #define BOOT_DEVICE_NONE 0xdeadbeef
 #endif
@@ -333,9 +337,11 @@ static int boot_from_devices(struct spl_image_info *spl_image,
 
 	return -ENODEV;
 }
+#endif
 
 void board_init_r(gd_t *dummy1, ulong dummy2)
 {
+#ifndef CONFIG_SPL_MULTIIMAGE
 	u32 spl_boot_list[] = {
 		BOOT_DEVICE_NONE,
 		BOOT_DEVICE_NONE,
@@ -344,6 +350,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 		BOOT_DEVICE_NONE,
 	};
 	struct spl_image_info spl_image;
+#endif
 
 	debug(">>spl:board_init_r()\n");
 
@@ -371,6 +378,9 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 	spl_board_init();
 #endif
 
+#ifdef CONFIG_SPL_MULTIIMAGE
+	spl_load_multi_images();
+#else /* CONFIG_SPL_MULTIIMAGE */
 	memset(&spl_image, '\0', sizeof(spl_image));
 	board_boot_order(spl_boot_list);
 
@@ -402,6 +412,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 	debug("loaded - jumping to U-Boot...");
 	spl_board_prepare_for_boot();
 	jump_to_image_no_args(&spl_image);
+#endif /* CONFIG_SPL_MULTIIMAGE */
 }
 
 /*
