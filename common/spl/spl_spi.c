@@ -15,7 +15,7 @@
 #include <errno.h>
 #include <spl.h>
 
-#ifdef CONFIG_SPL_OS_BOOT
+#if defined(CONFIG_SPL_OS_BOOT) && defined(CONFIG_SYS_SPI_KERNEL_OFFS)
 /*
  * Load the kernel, check for a valid header we can parse, and if found load
  * the kernel and then device tree.
@@ -128,14 +128,14 @@ static int spl_spi_load_image(struct spl_image_info *spl_image,
 {
 	int err = 0;
 	struct spi_flash *flash;
-#ifdef CONFIG_SPL_OS_BOOT
+#if defined(CONFIG_SPL_OS_BOOT) && defined(CONFIG_SYS_SPI_KERNEL_OFFS)
 	struct image_header header_stack;
 	struct image_header *header = &header_stack;
 #endif
 
 	flash = spl_spi_probe();
 
-#ifdef CONFIG_SPL_OS_BOOT
+#if defined(CONFIG_SPL_OS_BOOT) && defined(CONFIG_SYS_SPI_KERNEL_OFFS)
 	if (spl_start_uboot() || spi_load_image_os(spl_image, flash, &header))
 #endif
 	{
