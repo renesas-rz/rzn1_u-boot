@@ -342,6 +342,20 @@ config SPL_MTD_SUPPORT
 	  devices. See SPL_NAND_SUPPORT and SPL_ONENAND_SUPPORT for how
 	  to enable specific MTD drivers.
 
+config SPL_MULTIIMAGE
+	bool "Support loading multiple images on Renesas devices"
+	depends on SPL
+	help
+	  Enable loading multiple images from QSPI and/or NAND. It uses a PKG
+	  Table loaded from an offset of CONFIG_SYS_*_U_BOOT_OFFS from the boot
+	  media.
+	  The PKG Table specifies whether each package is a uImage, or a Renesas
+	  image wrapped in a BLp header. The BLp wrapped header can provide a
+	  signature of the payload, which can be verified by the BootROM. The PKG
+	  Table also indicates if the image contains code for the Cortex M3 core,
+	  and if so U-Boot/SPL will start the CM3 accordingly, or data, or code
+	  for the Cortex A7.
+
 config SPL_MUSB_NEW_SUPPORT
 	bool "Support new Mentor Graphics USB"
 	depends on SPL
