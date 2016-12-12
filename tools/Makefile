@@ -195,6 +195,10 @@ HOSTCFLAGS_md5.o := -pedantic
 HOSTCFLAGS_sha1.o := -pedantic
 HOSTCFLAGS_sha256.o := -pedantic
 
+ifneq ($(CONFIG_ARCH_RZN1),)
+subdir-$(CONFIG_ARCH_RZN1) += rzn1
+endif
+
 quiet_cmd_wrap = WRAP    $@
 cmd_wrap = echo "\#include <../$(patsubst $(obj)/%,%,$@)>" >$@
 
