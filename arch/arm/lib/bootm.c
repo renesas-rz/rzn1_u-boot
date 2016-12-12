@@ -298,6 +298,10 @@ static void switch_to_el1(void)
 #endif
 #endif
 
+#if defined(CONFIG_ARMV7_NONSEC) || defined(CONFIG_ARMV7_VIRT)
+extern int nonsec_and_hyp;
+#endif
+
 /* Subcommand: GO */
 static void boot_jump_linux(bootm_headers_t *images, int flag)
 {
@@ -370,6 +374,7 @@ static void boot_jump_linux(bootm_headers_t *images, int flag)
 	if (!fake) {
 #ifdef CONFIG_ARMV7_NONSEC
 		if (armv7_boot_nonsec()) {
+			nonsec_and_hyp = getenv_yesno("boot_hyp");
 			armv7_init_nonsec();
 			secure_ram_addr(_do_nonsec_entry)(kernel_entry,
 							  0, machid, r2);
