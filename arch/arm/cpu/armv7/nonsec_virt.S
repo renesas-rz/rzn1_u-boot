@@ -79,8 +79,13 @@ _secure_monitor:
 	mov	r6, #SVC_MODE			@ default mode is SVC
 	is_cpu_virt_capable r4
 #ifdef CONFIG_ARMV7_VIRT
+	bne	_skip_hyp			@ Don't hyp if not asked to
+	ldr	r7, =nonsec_and_hyp		@ Get the global
+	ldr	r7, [r7]
+	cmp	r7, #1
 	orreq	r5, r5, #0x100			@ allow HVC instruction
 	moveq	r6, #HYP_MODE			@ Enter the kernel as HYP
+_skip_hyp:
 #endif
 
 	mcr	p15, 0, r5, c1, c1, 0		@ write SCR (with NS bit set)
@@ -101,6 +106,10 @@ _secure_monitor:
 	orr	ip, ip, r6			@ Slot target mode in
 	msr	spsr_cxfs, ip			@ Set full SPSR
 	movs	pc, lr				@ ERET to non-secure
+
+	.globl 	nonsec_and_hyp
+nonsec_and_hyp:
+	.word 0
 
 ENTRY(_do_nonsec_entry)
 	mov	ip, r0
