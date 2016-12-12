@@ -384,7 +384,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 	case IH_OS_U_BOOT:
 		debug("Jumping to U-Boot\n");
 		break;
-#ifdef CONFIG_SPL_OS_BOOT
+#if defined(CONFIG_SPL_OS_BOOT) && defined(CONFIG_SYS_SPL_ARGS_ADDR)
 	case IH_OS_LINUX:
 		debug("Jumping to Linux\n");
 		spl_board_prepare_for_linux();
