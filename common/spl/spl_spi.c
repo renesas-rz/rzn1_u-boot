@@ -61,6 +61,63 @@ static ulong spl_spi_fit_read(struct spl_load_info *load, ulong sector,
 	else
 		return 0;
 }
+
+struct spi_flash *spl_spi_probe(void)
+{
+	struct spi_flash *flash;
+
+	flash = spi_flash_probe(CONFIG_SF_DEFAULT_BUS, CONFIG_SF_DEFAULT_CS,
+				CONFIG_SF_DEFAULT_SPEED, SPI_MODE_3);
+	if (!flash) {
+		puts("SPI probe failed.\n");
+		hang();
+	}
+
+	return flash;
+}
+
+int spl_spi_load_one_uimage(struct spl_image_info *spl_image,
+	struct spi_flash *flash, u32 offset)
+{
+	struct image_header header;
+	int err = 0;
+
+	/*
+	 * Skip loading the mkimage header. This is only necessary for block
+	 * based storage systems where the API requires loading whole blocks
+	 * into aligned destinations. The SF layer can load any amount of data
+	 * from flash and store it anywhere.
+	 */
+	spl_image->flags |= SPL_COPY_PAYLOAD_ONLY;
+
+	/* Load u-boot mkimage header */
+	err = spi_flash_read(flash, offset, sizeof(header), (void *)&header);
+	if (err)
+		return err;
+
+	if (IS_ENABLED(CONFIG_SPL_LOAD_FIT) &&
+		image_get_magic(&header) == FDT_MAGIC) {
+		struct spl_load_info load;
+
+		debug("Found FIT\n");
+		load.dev = flash;
+		load.priv = NULL;
+		load.filename = NULL;
+		load.bl_len = 1;
+		load.read = spl_spi_fit_read;
+		err = spl_load_simple_fit(spl_image, &load, offset, &header);
+	} else {
+		err = spl_parse_image_header(spl_image, &header);
+		if (err)
+			return err;
+		err = spi_flash_read(flash, offset + sizeof(header),
+				     spl_image->size,
+				     (void *)spl_image->load_addr);
+	}
+
+	return err;
+}
+
 /*
  * The main entry for SPI booting. It's necessary that SDRAM is already
  * configured and available since this code loads the main U-Boot image
@@ -71,61 +128,19 @@ static int spl_spi_load_image(struct spl_image_info *spl_image,
 {
 	int err = 0;
 	struct spi_flash *flash;
-	struct image_header header;
+#ifdef CONFIG_SPL_OS_BOOT
+	struct image_header header_stack;
+	struct image_header *header = &header_stack;
+#endif
 
-	/*
-	 * Skip loading the mkimage header. This is only necessary for block
-	 * based storage systems where the API requires loading whole blocks
-	 * into aligned destinations. The SF layer can load any amount of data
-	 * from flash and store it anywhere.
-	 */
-	spl_image->flags |= SPL_COPY_PAYLOAD_ONLY;
-
-	/*
-	 * Load U-Boot image from SPI flash into RAM
-	 */
-
-	flash = spi_flash_probe(CONFIG_SF_DEFAULT_BUS,
-				CONFIG_SF_DEFAULT_CS,
-				CONFIG_SF_DEFAULT_SPEED,
-				CONFIG_SF_DEFAULT_MODE);
-	if (!flash) {
-		puts("SPI probe failed.\n");
-		return -ENODEV;
-	}
+	flash = spl_spi_probe();
 
 #ifdef CONFIG_SPL_OS_BOOT
 	if (spl_start_uboot() || spi_load_image_os(spl_image, flash, &header))
 #endif
 	{
-		/* Load u-boot, mkimage header is 64 bytes. */
-		err = spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS,
-				     sizeof(header), (void *)&header);
-		if (err)
-			return err;
-
-		if (IS_ENABLED(CONFIG_SPL_LOAD_FIT) &&
-			image_get_magic(header) == FDT_MAGIC) {
-			struct spl_load_info load;
-
-			debug("Found FIT\n");
-			load.dev = flash;
-			load.priv = NULL;
-			load.filename = NULL;
-			load.bl_len = 1;
-			load.read = spl_spi_fit_read;
-			err = spl_load_simple_fit(spl_image, &load,
-						  CONFIG_SYS_SPI_U_BOOT_OFFS,
-						  &header);
-		} else {
-			err = spl_parse_image_header(spl_image, &header);
-			if (err)
-				return err;
-			err = spi_flash_read(flash, CONFIG_SYS_SPI_U_BOOT_OFFS
-					     + sizeof(header),
-					     spl_image->size,
-					     (void *)spl_image->load_addr);
-		}
+		err = spl_spi_load_one_uimage(spl_image, flash,
+					CONFIG_SYS_SPI_U_BOOT_OFFS);
 	}
 
 	return err;

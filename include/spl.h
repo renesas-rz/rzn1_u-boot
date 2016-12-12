@@ -250,4 +250,8 @@ int spl_dfu_cmd(int usbctrl, char *dfu_alt_info, char *interface, char *devstr);
 int spl_mmc_load_image(struct spl_image_info *spl_image,
 		       struct spl_boot_device *bootdev);
 
+struct spi_flash *spl_spi_probe(void);
+int spl_spi_load_one_uimage(struct spl_image_info *spl_image,
+	struct spi_flash *flash, u32 offset);
+
 #endif
