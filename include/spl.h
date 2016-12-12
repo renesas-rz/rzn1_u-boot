@@ -130,6 +130,8 @@ int spl_start_uboot(void);
  * This function should be provided by the board.
  */
 void spl_display_print(void);
+void __noreturn spl_load_multi_images(void);
+void __noreturn jump_to_image_no_args(struct spl_image_info *spl_image);
 
 /**
  * struct spl_boot_device - Describes a boot device used by SPL
