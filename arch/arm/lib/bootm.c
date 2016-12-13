@@ -372,7 +372,7 @@ static void boot_jump_linux(bootm_headers_t *images, int flag)
 		r2 = gd->bd->bi_boot_params;
 
 	if (!fake) {
-#ifdef CONFIG_ARMV7_NONSEC
+#if defined(CONFIG_ARMV7_NONSEC) && !defined(CONFIG_ARMV7_NONSEC_AT_BOOT)
 		if (armv7_boot_nonsec()) {
 			nonsec_and_hyp = getenv_yesno("boot_hyp");
 			armv7_init_nonsec();
