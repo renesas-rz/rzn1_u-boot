@@ -12,6 +12,8 @@
 #include <libfdt_env.h>
 #include <fdt.h>
 
+static int nand_inited;
+
 #if defined(CONFIG_SPL_NAND_RAW_ONLY)
 int spl_nand_load_image(struct spl_image_info *spl_image,
 			struct spl_boot_device *bootdev)
@@ -40,10 +42,16 @@ static ulong spl_nand_fit_read(struct spl_load_info *load, ulong offs,
 		return 0;
 }
 
-static int spl_nand_load_element(struct spl_image_info *spl_image,
-				 int offset, struct image_header *header)
+int spl_nand_load_element(struct spl_image_info *spl_image,
+			  int offset, struct image_header *header)
 {
 	int err;
+
+	/* Allow multiple calls */
+	if (!nand_inited) {
+		nand_init();
+		nand_inited = 1;
+	}
 
 	err = nand_spl_load_image(offset, sizeof(*header), (void *)header);
 	if (err)
