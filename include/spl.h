@@ -253,5 +253,7 @@ int spl_mmc_load_image(struct spl_image_info *spl_image,
 struct spi_flash *spl_spi_probe(void);
 int spl_spi_load_one_uimage(struct spl_image_info *spl_image,
 	struct spi_flash *flash, u32 offset);
+int spl_nand_load_element(struct spl_image_info *spl_image,
+			  int offset, struct image_header *header);
 
 #endif
