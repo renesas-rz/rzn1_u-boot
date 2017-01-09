@@ -27,6 +27,7 @@ DECLARE_GLOBAL_DATA_PTR;
 
 int arch_fixup_fdt(void *blob)
 {
+#ifdef CONFIG_NR_DRAM_BANKS
 	bd_t *bd = gd->bd;
 	int bank, ret;
 	u64 start[CONFIG_NR_DRAM_BANKS];
@@ -57,6 +58,7 @@ int arch_fixup_fdt(void *blob)
 	ret = psci_update_dt(blob);
 	if (ret)
 		return ret;
+#endif
 #endif
 
 	return 0;
