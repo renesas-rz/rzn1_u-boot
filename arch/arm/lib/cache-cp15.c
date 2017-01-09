@@ -94,6 +94,7 @@ void mmu_set_region_dcache_behaviour(phys_addr_t start, size_t size,
 	mmu_page_table_flush(startpt, stoppt);
 }
 
+#ifdef CONFIG_NR_DRAM_BANKS
 __weak void dram_bank_mmu_setup(int bank)
 {
 	bd_t *bd = gd->bd;
@@ -113,6 +114,7 @@ __weak void dram_bank_mmu_setup(int bank)
 #endif
 	}
 }
+#endif
 
 __weak void post_mmu_setup(void)
 {
@@ -130,9 +132,11 @@ static inline void mmu_setup(void)
 		set_section_dcache(i, DCACHE_OFF);
 
 	post_mmu_setup();
+#ifdef CONFIG_NR_DRAM_BANKS
 	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
 		dram_bank_mmu_setup(i);
 	}
+#endif
 
 #ifdef CONFIG_ARMV7_LPAE
 	/* Set up 4 PTE entries pointing to our 4 1GB page tables */
