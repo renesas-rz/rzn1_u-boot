@@ -58,10 +58,12 @@ void arch_lmb_reserve(struct lmb *lmb)
 	sp = get_sp();
 	debug("## Current stack ends at 0x%08lx ", sp);
 
+#ifdef CONFIG_NR_DRAM_BANKS
 	/* adjust sp by 4K to be safe */
 	sp -= 4096;
 	lmb_reserve(lmb, sp,
 		    gd->bd->bi_dram[0].start + gd->bd->bi_dram[0].size - sp);
+#endif
 }
 
 __weak void board_quiesce_devices(void)
@@ -110,6 +112,7 @@ static void setup_start_tag (bd_t *bd)
 
 static void setup_memory_tags(bd_t *bd)
 {
+#ifdef CONFIG_NR_DRAM_BANKS
 	int i;
 
 	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
@@ -121,6 +124,7 @@ static void setup_memory_tags(bd_t *bd)
 
 		params = tag_next (params);
 	}
+#endif
 }
 
 static void setup_commandline_tag(bd_t *bd, char *commandline)
