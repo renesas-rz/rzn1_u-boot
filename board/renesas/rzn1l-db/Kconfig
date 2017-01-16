@@ -1,0 +1,15 @@
+if TARGET_RENESAS_RZN1L_DB
+
+config SYS_BOARD
+	default "rzn1l-db"
+
+config SYS_VENDOR
+	default "renesas"
+
+config SYS_SOC
+	default "rzn1"
+
+config SYS_CONFIG_NAME
+	default "rzn1l-db"
+
+endif
