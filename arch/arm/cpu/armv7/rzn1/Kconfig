@@ -23,6 +23,9 @@ config TARGET_RENESAS_RZN1S_IO_LINK
 	bool "Renesas rzn1s-io-link"
 	select SUPPORT_SPL
 
+config TARGET_RENESAS_RZN1L_DB
+	bool "Renesas rzn1l-db"
+
 endchoice
 
 config SYS_SOC
@@ -31,5 +34,6 @@ config SYS_SOC
 source "board/renesas/rzn1d400-db/Kconfig"
 source "board/renesas/rzn1s324-db/Kconfig"
 source "board/renesas/rzn1s-io-link/Kconfig"
+source "board/renesas/rzn1l-db/Kconfig"
 
 endif
