@@ -15,11 +15,16 @@ config TARGET_RENESAS_RZN1D400_DB
 	bool "Renesas rzn1d400-db"
 	select SUPPORT_SPL
 
+config TARGET_RENESAS_RZN1S324_DB
+	bool "Renesas rzn1s324-db"
+	select SUPPORT_SPL
+
 endchoice
 
 config SYS_SOC
 	default "rzn1"
 
 source "board/renesas/rzn1d400-db/Kconfig"
+source "board/renesas/rzn1s324-db/Kconfig"
 
 endif

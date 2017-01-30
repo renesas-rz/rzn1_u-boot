@@ -164,6 +164,7 @@ dtb-$(CONFIG_FSL_LSCH2) += fsl-ls1043a-qds-duart.dtb \
 	fsl-ls1012a-frdm.dtb
 
 dtb-$(CONFIG_TARGET_RENESAS_RZN1D400_DB) += rzn1d400-db.dtb
+dtb-$(CONFIG_TARGET_RENESAS_RZN1S324_DB) += rzn1s324-db.dtb
 
 dtb-$(CONFIG_ARCH_SNAPDRAGON) += dragonboard410c.dtb
 
