@@ -233,12 +233,14 @@ int spl_init(void)
 	int ret;
 
 	debug("spl_init()\n");
+#if !defined(CONFIG_SYS_SPL_MALLOC_START) || !defined(CONFIG_SYS_SPL_MALLOC_SIZE)
 #if defined(CONFIG_SYS_MALLOC_F_LEN)
 #ifdef CONFIG_MALLOC_F_ADDR
 	gd->malloc_base = CONFIG_MALLOC_F_ADDR;
 #endif
 	gd->malloc_limit = CONFIG_SYS_MALLOC_F_LEN;
 	gd->malloc_ptr = 0;
+#endif
 #endif
 	if (CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA)) {
 		ret = fdtdec_setup();
@@ -343,6 +345,9 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 #if defined(CONFIG_SYS_SPL_MALLOC_START)
 	mem_malloc_init(CONFIG_SYS_SPL_MALLOC_START,
 			CONFIG_SYS_SPL_MALLOC_SIZE);
+	gd->malloc_base = CONFIG_SYS_SPL_MALLOC_START;
+	gd->malloc_limit = CONFIG_SYS_SPL_MALLOC_SIZE;
+	gd->malloc_ptr = 0;
 	gd->flags |= GD_FLG_FULL_MALLOC_INIT;
 #endif
 	if (!(gd->flags & GD_FLG_SPL_INIT)) {
