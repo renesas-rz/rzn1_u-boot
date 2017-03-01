@@ -23,6 +23,78 @@ SECTIONS
 		*(.text*)
 	}
 
+#ifdef CONFIG_ARMV7_NONSEC
+
+	/* Align the secure section only if we're going to use it in situ */
+	.__secure_start :
+#ifndef CONFIG_ARMV7_SECURE_BASE
+	/*	ALIGN(CONSTANT(COMMONPAGESIZE)) */
+		ALIGN(32)
+#endif
+	{
+		KEEP(*(.__secure_start))
+	}
+
+#ifndef CONFIG_ARMV7_SECURE_BASE
+#define CONFIG_ARMV7_SECURE_BASE
+#define __ARMV7_PSCI_STACK_IN_RAM
+#endif
+
+	.secure_text CONFIG_ARMV7_SECURE_BASE :
+		AT(ADDR(.__secure_start) + SIZEOF(.__secure_start))
+	{
+		*(._secure.text)
+	}
+
+	.secure_data : AT(LOADADDR(.secure_text) + SIZEOF(.secure_text))
+	{
+		*(._secure.data)
+	}
+
+#ifdef CONFIG_ARMV7_PSCI
+	.secure_stack ALIGN(ADDR(.secure_data) + SIZEOF(.secure_data),
+			    CONSTANT(COMMONPAGESIZE)) (NOLOAD) :
+#ifdef __ARMV7_PSCI_STACK_IN_RAM
+		AT(ADDR(.secure_stack))
+#else
+		AT(LOADADDR(.secure_data) + SIZEOF(.secure_data))
+#endif
+	{
+		KEEP(*(.__secure_stack_start))
+
+		/* Skip addreses for stack */
+		. = . + CONFIG_ARMV7_PSCI_NR_CPUS * ARM_PSCI_STACK_SIZE;
+
+		/* Align end of stack section to page boundary */
+		. = ALIGN(CONSTANT(COMMONPAGESIZE));
+
+		KEEP(*(.__secure_stack_end))
+
+#ifdef CONFIG_ARMV7_SECURE_MAX_SIZE
+		/*
+		 * We are not checking (__secure_end - __secure_start) here,
+		 * as these are the load addresses, and do not include the
+		 * stack section. Instead, use the end of the stack section
+		 * and the start of the text section.
+		 */
+		ASSERT((. - ADDR(.secure_text)) <= CONFIG_ARMV7_SECURE_MAX_SIZE,
+		       "Error: secure section exceeds secure memory size");
+#endif
+	}
+
+#ifndef __ARMV7_PSCI_STACK_IN_RAM
+	/* Reset VMA but don't allocate space if we have secure SRAM */
+	. = LOADADDR(.secure_stack);
+#endif
+
+#endif
+
+	.__secure_end : AT(ADDR(.__secure_end)) {
+		*(.__secure_end)
+		LONG(0x1d1071c);	/* Must output something to reset LMA */
+	}
+#endif
+
 	. = ALIGN(4);
 	.rodata : { *(SORT_BY_ALIGNMENT(SORT_BY_NAME(.rodata*))) }
 
