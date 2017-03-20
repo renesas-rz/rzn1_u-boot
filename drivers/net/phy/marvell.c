@@ -13,6 +13,8 @@
 
 #define PHY_AUTONEGOTIATE_TIMEOUT 5000
 
+#define MII_MARVELL_PHY_PAGE		22
+
 /* 88E1011 PHY Status Register */
 #define MIIM_88E1xxx_PHY_STATUS		0x11
 #define MIIM_88E1xxx_PHYSTAT_SPEED	0xc000
@@ -62,6 +64,12 @@
 #define MIIM_88E1121_PHY_IRQ_STATUS	19
 
 #define MIIM_88E1121_PHY_PAGE		22
+
+#define MII_88E1121_PHY_MSCR_PAGE	2
+#define MII_88E1121_PHY_MSCR_REG	21
+#define MII_88E1121_PHY_MSCR_RX_DELAY	BIT(5)
+#define MII_88E1121_PHY_MSCR_TX_DELAY	BIT(4)
+#define MII_88E1121_PHY_MSCR_DELAY_MASK	(~(0x3 << 4))
 
 /* 88E1145 Extended PHY Specific Control Register */
 #define MIIM_88E1145_PHY_EXT_CR 20
@@ -280,6 +288,8 @@ void m88e1518_phy_writebits(struct phy_device *phydev,
 
 static int m88e1518_config(struct phy_device *phydev)
 {
+	u16 reg;
+
 	/*
 	 * As per Marvell Release Notes - Alaska 88E1510/88E1518/88E1512
 	 * /88E1514 Rev A0, Errata Section 3.1
@@ -314,7 +324,42 @@ static int m88e1518_config(struct phy_device *phydev)
 		udelay(100);
 	}
 
-	return m88e1111s_config(phydev);
+	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
+		reg = phy_read(phydev,
+			MDIO_DEVAD_NONE, MIIM_88E1111_PHY_EXT_SR);
+
+		reg &= ~(MIIM_88E1111_HWCFG_MODE_MASK);
+		reg |= MIIM_88E1111_HWCFG_MODE_SGMII_NO_CLK;
+		reg |= MIIM_88E1111_HWCFG_FIBER_COPPER_AUTO;
+
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			MIIM_88E1111_PHY_EXT_SR, reg);
+	}
+
+	if (phy_interface_is_rgmii(phydev)) {
+		phy_write(phydev, MDIO_DEVAD_NONE, MII_MARVELL_PHY_PAGE, MII_88E1121_PHY_MSCR_PAGE);
+
+		reg = phy_read(phydev, MDIO_DEVAD_NONE, MII_88E1121_PHY_MSCR_REG);
+		reg &= ~MII_88E1121_PHY_MSCR_RX_DELAY;
+		reg &= ~MII_88E1121_PHY_MSCR_TX_DELAY;
+		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
+			reg |= MII_88E1121_PHY_MSCR_RX_DELAY | MII_88E1121_PHY_MSCR_TX_DELAY;
+		else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
+			reg |= MII_88E1121_PHY_MSCR_RX_DELAY;
+		else if (phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID)
+			reg |= MII_88E1121_PHY_MSCR_TX_DELAY;
+		phy_write(phydev, MDIO_DEVAD_NONE, MII_88E1121_PHY_MSCR_REG, reg);
+
+		phy_write(phydev, MDIO_DEVAD_NONE, MII_MARVELL_PHY_PAGE, 0);
+	}
+
+	/* soft reset */
+	phy_reset(phydev);
+
+	genphy_config_aneg(phydev);
+	genphy_restart_aneg(phydev);
+
+	return 0;
 }
 
 /* Marvell 88E1510 */
