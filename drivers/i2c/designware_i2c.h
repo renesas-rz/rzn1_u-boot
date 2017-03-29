@@ -44,6 +44,8 @@ struct i2c_regs {
 	u32 ic_tx_abrt_source;	/* 0x80 */
 	u8 res1[0x18];		/* 0x84 */
 	u32 ic_enable_status;	/* 0x9c */
+	u8 res2[0x58];		/* 0xa0 */
+	u32 version;		/* 0xf8 */
 };
 
 #if !defined(IC_CLK)
@@ -131,5 +133,9 @@ struct i2c_regs {
 #define I2C_MAX_SPEED		3400000
 #define I2C_FAST_SPEED		400000
 #define I2C_STANDARD_SPEED	100000
+
+#define DW_IC_SDA_HOLD_MIN_VERS	0x3131312A
+#define DW_IC_SDA_HOLD_RX_SHIFT		16
+#define DW_IC_SDA_HOLD_RX_MASK		GENMASK(23, DW_IC_SDA_HOLD_RX_SHIFT)
 
 #endif /* __DW_I2C_H_ */
