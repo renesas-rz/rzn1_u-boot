@@ -79,6 +79,7 @@ static unsigned int __dw_i2c_set_bus_speed(struct i2c_regs *i2c_base,
 	unsigned int cntl;
 	unsigned int hcnt, lcnt;
 	int i2c_spd;
+	u32 reg;
 
 	if (speed >= I2C_MAX_SPEED)
 		i2c_spd = IC_SPEED_MODE_MAX;
@@ -141,6 +142,27 @@ static unsigned int __dw_i2c_set_bus_speed(struct i2c_regs *i2c_base,
 	/* Configure SDA Hold Time if required */
 	if (scl_sda_cfg)
 		writel(scl_sda_cfg->sda_hold, &i2c_base->ic_sda_hold);
+
+	/*
+	 * Set SDA Rx Hold time to a minimum of 1 ic_clk.
+	 *
+	 * The I2C protocol specification requires 300ns of hold time on the SDA
+	 * signal in standard mode and fast mode, and a hold time long enough to
+	 * bridge the undefined part between logic 1 and logic 0 of the falling
+	 * edge of SCL in high speed mode and fast mode plus.
+	 *
+	 * However, board delays on the SCL and SDA signals can mean that the
+	 * hold-time requirement is met at the I2C master, but not at the I2C
+	 * slave (or vice-versa).
+	 */
+	reg = readl(&i2c_base->version);
+	if (reg >= DW_IC_SDA_HOLD_MIN_VERS) {
+		u32 sda_hold_time = readl(&i2c_base->ic_sda_hold);
+
+		if (!(sda_hold_time & DW_IC_SDA_HOLD_RX_MASK))
+			sda_hold_time |= 1 << DW_IC_SDA_HOLD_RX_SHIFT;
+		writel(sda_hold_time, &i2c_base->ic_sda_hold);
+	}
 
 	/* Enable back i2c now speed set */
 	dw_i2c_enable(i2c_base, true);
