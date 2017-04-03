@@ -9,6 +9,7 @@
 
 #include <common.h>
 #include <asm/io.h>
+#include "ohci.h"
 #include "ehci.h"
 #include "ehci-rmobile.h"
 #include <pci.h>
@@ -28,6 +29,10 @@ static u32 usb_base_address[] = {
 static u32 usb_base_address[] = {
 	0xEE080000,	/* USB0 (EHCI) */
 	0xEE0C0000,	/* USB1 */
+};
+#elif defined(CONFIG_ARCH_RZN1)
+static u32 usb_base_address[] = {
+	0x40020000,	/* USB0 (EHCI) */
 };
 #else
 #error rmobile EHCI USB driver not supported on this platform
@@ -58,9 +63,11 @@ int ehci_hcd_stop(int index)
 	if (!i)
 		printf("error : ehci(%d) reset failed.\n", index);
 
+#if !defined(CONFIG_ARCH_RZN1)
 	/* Turn off IP clock */
 	if (index == (ARRAY_SIZE(usb_base_address) - 1))
 		setbits_le32(SMSTPCR7, SMSTPCR703);
+#endif
 
 	return 0;
 }
@@ -108,18 +115,26 @@ int ehci_hcd_init(int index, enum usb_init_type init,
 	struct ehci_hccr **hccr, struct ehci_hcor **hcor)
 {
 	u32 base, reg;
+	struct ohci_regs *rohci;
 	struct rmobile_ehci_reg *rehci;
 	uint32_t cap_base;
 	u32 val;
 	/* The mask applied to the window addr depends on the window size */
+#if !defined(CONFIG_SYS_STAY_IN_SRAM)
 	u32 win1_addr = CONFIG_SYS_SDRAM_BASE & 0xc0000000;
+#else
+	u32 win1_addr = CONFIG_SYS_SRAM_BASE & 0xc0000000;
+#endif
 	base = usb_base_address[index];
 
+#if !defined(CONFIG_ARCH_RZN1)
 	/* Turn on IP clock */
 	if (index == 0)
 		clrbits_le32(SMSTPCR7, SMSTPCR703);
+#endif
 
 	reg = base + PCI_CONF_AHBPCI_OFFSET;
+	rohci = (struct ohci_regs *)(base + OHCI_OFFSET);
 	rehci = (struct rmobile_ehci_reg *)(base + EHCI_OFFSET);
 
 	/* Disable Direct Power Down State and assert reset */
@@ -176,6 +191,15 @@ int ehci_hcd_init(int index, enum usb_init_type init,
 	*hccr = (struct ehci_hccr *)((uint32_t)&rehci->hciversion);
 	cap_base = ehci_readl(&(*hccr)->cr_capbase);
 	*hcor = (struct ehci_hcor *)((uint32_t)*hccr + HC_LENGTH(cap_base));
+
+
+	/* OHCI init */
+#define	USBH_POTPGT_WAIT_TIME			(0xFF << 24)
+#define	USBH_NOCP_ENABLE			0
+#define	USBH_OCPM_PORT_UNIT			BIT(11)
+#define	USBH_NPS_ALWAYS_POWERON			BIT(9)
+#define	USBH_PSM_PORT_UNIT			BIT(8)
+	writel(USBH_POTPGT_WAIT_TIME | USBH_NOCP_ENABLE | USBH_OCPM_PORT_UNIT | USBH_NPS_ALWAYS_POWERON | USBH_PSM_PORT_UNIT, &rohci->roothub.a);
 
 	return 0;
 }
