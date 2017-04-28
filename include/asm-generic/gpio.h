@@ -97,6 +97,14 @@ int gpio_get_value(unsigned gpio);
  */
 int gpio_set_value(unsigned gpio, int value);
 
+/* Old non-DM gpio functions */
+int nondm_gpio_request(unsigned gpio, const char *label);
+int nondm_gpio_free(unsigned gpio);
+int nondm_gpio_direction_input(unsigned gpio);
+int nondm_gpio_direction_output(unsigned gpio, int value);
+int nondm_gpio_get_value(unsigned gpio);
+int nondm_gpio_set_value(unsigned gpio, int value);
+
 /* State of a GPIO, as reported by get_function() */
 enum gpio_func_t {
 	GPIOF_INPUT = 0,
