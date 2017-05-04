@@ -472,6 +472,7 @@ static int _dw_free_pkt(struct dw_eth_dev *priv)
 	return 0;
 }
 
+static int nr_dw_macs;
 static int dw_phy_init(struct dw_eth_dev *priv, void *dev)
 {
 	struct phy_device *phydev;
@@ -481,18 +482,16 @@ static int dw_phy_init(struct dw_eth_dev *priv, void *dev)
 	mask = 1 << CONFIG_PHY_ADDR;
 #endif
 
-#ifndef CONFIG_DM_ETH
-	struct eth_device *edev = (struct eth_device *)dev;
-
 #ifdef CONFIG_PHY1_ADDR
-	if (edev->index == 1)
+	if (nr_dw_macs == 1)
 		mask = 1 << getenv_ulong("switch_phy_addr", 10, CONFIG_PHY1_ADDR);
 #endif
-#endif
+	nr_dw_macs++;
 
 	phydev = phy_find_by_mask(priv->bus, mask, priv->interface);
-	if (!phydev)
+	if (!phydev) {
 		return -ENODEV;
+	}
 
 	phy_connect_dev(phydev, dev);
 
@@ -550,6 +549,7 @@ int designware_initialize_fixed_link(ulong base_addr, u32 interface, int speed)
 {
 	struct eth_device *dev;
 	struct dw_eth_dev *priv;
+	int ret;
 
 	dev = (struct eth_device *) malloc(sizeof(struct eth_device));
 	if (!dev)
@@ -597,7 +597,10 @@ int designware_initialize_fixed_link(ulong base_addr, u32 interface, int speed)
 	dw_mdio_init(dev->name, priv->mac_regs_p);
 	priv->bus = miiphy_get_dev_by_name(dev->name);
 
-	return dw_phy_init(priv, dev);
+	ret = dw_phy_init(priv, dev);
+	if (ret)
+		eth_unregister(dev);
+	return ret;
 }
 
 int designware_initialize(ulong base_addr, u32 interface)
