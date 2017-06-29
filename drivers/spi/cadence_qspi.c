@@ -219,9 +219,13 @@ static int cadence_spi_xfer(struct udevice *dev, unsigned int bitlen,
 	}
 	debug("%s: len=%d [bytes]\n", __func__, data_bytes);
 
-	/* Set Chip select */
-	cadence_qspi_apb_chipselect(base, spi_chip_select(dev),
-				    CONFIG_CQSPI_DECODER);
+	/* Set Chip select
+	 * Only do this beginning, otherwise we can end up toggling the CS
+	 * line whilst a memory mapped access is still pushing data out
+	 */
+	if (flags & SPI_XFER_BEGIN)
+		cadence_qspi_apb_chipselect(base, spi_chip_select(dev),
+					CONFIG_CQSPI_DECODER);
 
 	if ((flags & SPI_XFER_END) || (flags == 0)) {
 		if (priv->cmd_len == 0) {
