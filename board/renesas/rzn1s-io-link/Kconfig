@@ -1,0 +1,15 @@
+if TARGET_RENESAS_RZN1S_IO_LINK
+
+config SYS_BOARD
+	default "rzn1s-io-link"
+
+config SYS_VENDOR
+	default "renesas"
+
+config SYS_SOC
+	default "rzn1"
+
+config SYS_CONFIG_NAME
+	default "rzn1s-io-link"
+
+endif
