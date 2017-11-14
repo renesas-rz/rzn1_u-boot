@@ -59,6 +59,13 @@ int timer_init(void)
 	struct cm3_systick *systick = (struct cm3_systick *)SYSTICK_BASE;
 	u32 cal;
 
+	/* If we have already been initialised, no need to continue */
+	if (gd->arch.timer_rate_hz)
+		return 0;;
+
+	/* disable timer whilst configuring it */
+	writel(0, &systick->ctrl);
+
 	writel(TIMER_MAX_VAL, &systick->reload_val);
 	/* Any write to current_val reg clears it to 0 */
 	writel(0, &systick->current_val);
@@ -98,7 +105,13 @@ ulong get_timer(ulong base)
 
 unsigned long long get_ticks(void)
 {
-	u32 now = read_timer();
+	u32 now;
+
+	/* Ensure the timer still works if used before it's initialised */
+	if (!gd->arch.timer_rate_hz)
+		timer_init();
+
+	now = read_timer();
 
 	if (now >= gd->arch.lastinc)
 		gd->arch.tbl += (now - gd->arch.lastinc);
