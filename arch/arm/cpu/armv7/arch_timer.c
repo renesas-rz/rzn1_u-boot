@@ -48,6 +48,10 @@ void __udelay(unsigned long usec)
 {
 	unsigned long long endtime;
 
+	/* Ensure the timer still works if used before it's initialised */
+	if (!gd->arch.timer_rate_hz)
+		timer_init();
+
 	endtime = lldiv((unsigned long long)usec * gd->arch.timer_rate_hz,
 			1000UL);
 
