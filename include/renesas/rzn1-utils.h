@@ -30,22 +30,13 @@ static inline int is_rzn1d(void)
 	return 0;
 }
 
+/* Helper funcs */
+int fdt_pulse_gpio(const char *dt_node, const char *dt_prop, int ms);
+
 /* USB */
 int rzn1_usb_init(int index, enum usb_init_type init);
 
 /* PinMux */
-#define RZN1_DRIVE_SET  	(1 << 31)
-#define RZN1_PULL_SET  		(1 << 30)
-#define RZN1_DRIVE_4MA		(RZN1_DRIVE_SET | (0 << 10))
-#define RZN1_DRIVE_6MA		(RZN1_DRIVE_SET | (1 << 10))
-#define RZN1_DRIVE_8MA		(RZN1_DRIVE_SET | (2 << 10))
-#define RZN1_DRIVE_12MA		(RZN1_DRIVE_SET | (3 << 10))
-#define RZN1_DRIVE_MASK		(3 << 10)
-#define RZN1_PULL_NONE		(RZN1_PULL_SET | (0 << 8))
-#define RZN1_PULL_UP		(RZN1_PULL_SET | (1 << 8))
-#define RZN1_PULL_DOWN		(RZN1_PULL_SET | (3 << 8))
-#define RZN1_PULL_MASK		(3 << 8)
-
 void rzn1_pinmux_set(u32 setting);
 void rzn1_pinmux_select(u8 pin, u32 func, u32 attrib);
 

@@ -116,7 +116,7 @@
 #define mdio1 hoard
 #define lcd fb0
 
-#include "rzn1d400_preset_db.dts"
+#include "rzn1s-io-link-pinmux.dts"
 
 /* If you want to use High Resolution timers (hrtimers), e.g. for real-time
  * Linux, you need more than just the ARM architected timer. Hence we enable
@@ -210,7 +210,7 @@
 	bus_freq = <2500000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mdio1>,
-		<&pins_eth1>, <&pins_eth2>, <&pins_eth3>, <&pins_eth4>;
+		<&pins_eth3>, <&pins_eth4>;
 
 	/* Reset is on GPIO 94 */
 	phy-reset-gpios = <&gpio1b 25 GPIO_ACTIVE_HIGH>;

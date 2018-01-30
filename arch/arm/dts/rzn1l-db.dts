@@ -80,7 +80,7 @@
 #define mdio1 hoard
 #define lcd fb0
 
-#include "rzn1d400_preset_db.dts"
+#include "rzn1l-db-pinmux.dts"
 
 /* Calculated gpio irq numbers: gpioXa Y = 32*X + Y */
 #define GPIOA_IRQ(gpioa_block, nr)	(32 * gpioa_block + nr)
@@ -117,14 +117,13 @@
 &gpio1 {
 	status = "okay";
 };
-&gpio2 {
-	status = "okay";
-};
 
 &gmac0 {
+	/* By default, there is no PHY fitted for GMAC0 */
+	/* Since pins_eth0 are optional, we do not use them here */
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pins_mdio0>, <&pins_eth0>;
+	pinctrl-0 = <&pins_mdio0>;
 
 	phy-handle = <&phy_mii0>;
 
@@ -164,7 +163,7 @@
 	bus_freq = <2500000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mdio1>,
-		<&pins_eth1>, <&pins_eth2>, <&pins_eth3>, <&pins_eth4>;
+		<&pins_eth3>, <&pins_eth4>;
 
 	/* Reset is on GPIO 94 */
 	phy-reset-gpios = <&gpio1b 25 GPIO_ACTIVE_HIGH>;

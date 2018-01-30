@@ -135,7 +135,6 @@
  #define CONFIG_PHY_MICREL
  #define CONFIG_PHY_MARVELL
  #define CONFIG_PHY_RESET_DELAY		1000	/* PHY RESET recovery delay in usec */
- #define RZN1_APPLY_ETH_PHY_RESET_PULSE /* Reset cycle on signal phy reset */
 
 /*
  * GMAC1 is connected to a Marvell PHY on the Extension board

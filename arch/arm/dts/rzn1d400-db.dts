@@ -120,7 +120,7 @@
 #define mdio1 hoard
 #define lcd fb0
 
-#include "rzn1d400_preset_db.dts"
+#include "rzn1d-db-pinmux.dts"
 
 /* If you want to use High Resolution timers (hrtimers), e.g. for real-time
  * Linux, you need more than just the ARM architected timer. Hence we enable
@@ -187,7 +187,15 @@
 };
 &gpio1 {
 	status = "okay";
+	u-boot,dm-pre-reloc;
 };
+&gpio1a {
+	u-boot,dm-pre-reloc;
+};
+&gpio1b {
+	u-boot,dm-pre-reloc;
+};
+
 &gpio2 {
 	status = "okay";
 };
@@ -226,6 +234,7 @@
 	};
 };
 &ethswitch {
+	u-boot,dm-pre-reloc;
 	status = "disabled";
 	bus_freq = <2500000>;
 	pinctrl-names = "default";

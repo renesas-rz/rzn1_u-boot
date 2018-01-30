@@ -139,7 +139,7 @@ enum {
 	RZN1_P_CAN1 = 0, RZN1_P_ETH0, RZN1_P_ETH1, RZN1_P_ETH2, RZN1_P_ETH3, RZN1_P_ETH4,
 	RZN1_P_GPIO1, RZN1_P_GPIO2, RZN1_P_I2C1, RZN1_P_LCD, RZN1_P_MDIO0, RZN1_P_MDIO1,
 	RZN1_P_NMI, RZN1_P_QSPI0, RZN1_P_QSPI1, RZN1_P_REFCLK, RZN1_P_SDIO0, RZN1_P_SWITCH,
-	RZN1_P_UART0, RZN1_P_UART2, RZN1_P_UART3, RZN1_P_USB, 
+	RZN1_P_UART0, RZN1_P_UART2, RZN1_P_UART3, RZN1_P_USB,
 };
 
 /*
@@ -283,7 +283,7 @@ static const uint32_t rzn1_pinmux_map[] = {
 	_RZP(P_QSPI1, RZN1_MUX_QSPI1(158, QSPI)),		/* QSPI1_IO[0] */
 	_RZP(P_QSPI1, RZN1_MUX_QSPI1(159, QSPI)),		/* QSPI1_CLK */
 	_RZP(P_REFCLK, RZN1_MUX_REFCLK(60, CLK_ETH_MII_RGMII_RMII)),	/* REFCLK_RGMII */
-	_RZP(P_REFCLK, RZN1_MUX_REFCLK(61, CLK_ETH_NAND)),	/* REFCLK_MII */
+	_RZP(P_REFCLK, RZN1_MUX_REFCLK(61, CLK_ETH_NAND)),	/* REFCLK_MII[1] */
 	_RZP(P_SDIO0, RZN1_MUX_SDIO0(95, SDIO)),		/* SDIO0_CMD */
 	_RZP(P_SDIO0, RZN1_MUX_12MA(96, SDIO)),			/* SDIO0_CLK */
 	_RZP(P_SDIO0, RZN1_MUX_SDIO0(97, SDIO)),		/* SDIO0_IO[0] */
@@ -348,10 +348,10 @@ static int rzn1_board_pinmux_mask(uint32_t periph_mask /* = -1 */) {
 }
 #endif
 
-/* 
- * this is the compressed Renesas Pinmux Web App data structure; this is
+/*
+ * This is the compressed Renesas Pinmux Web App data structure; this is
  * used to allow uploading this file back into the web app, make some
- * more changes and generate/save the DTS again. It is not used by linux
+ * more changes and generate/save the DTS again. It is not used by Linux
  * in any way.
  */
 #ifdef JSON_PRESET

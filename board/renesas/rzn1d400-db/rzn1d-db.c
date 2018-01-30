@@ -96,47 +96,61 @@ int rzn1_ctrl(void)
 }
 
 #if defined(CONFIG_FPGA) && !defined(CONFIG_SPL_BUILD)
-#define CPLD_TDO_PIN	88
-#define CPLD_TMS_PIN	89
-#define CPLD_TDI_PIN	90
-#define CPLD_TCK_PIN	91
+
+struct gpio_desc gpio_desc_tdo;
+struct gpio_desc gpio_desc_tms;
+struct gpio_desc gpio_desc_tdi;
+struct gpio_desc gpio_desc_tck;
+
 static void rzn1_jtag_init(void)
 {
+	int ret = 0;
+
 	/* Uses PMOD3 pins as GPIOs - that's the default setting.
-	 * PMOD3 pin   GPIO-No   JTAG connector
-	 * CN4 pin 1     88      TDO on CN3 pin 6
-	 * CN4 pin 2     89      TMS on CN3 pin 5
-	 * CN4 pin 3     90      TDI on CN3 pin 4
-	 * CN4 pin 4     91      TCK on CN3 pin 3
+	 * PMOD3 pin   GPIO-No   GPIO ref    JTAG connector
+	 * CN4 pin 1     88       1b[19]    TDO on CN3 pin 6
+	 * CN4 pin 2     89       1b[20]    TMS on CN3 pin 5
+	 * CN4 pin 3     90       1b[21]    TDI on CN3 pin 4
+	 * CN4 pin 4     91       1b[22]    TCK on CN3 pin 3
 	 */
-	nondm_gpio_request(CPLD_TDO_PIN, "tdo");
-	nondm_gpio_direction_input(CPLD_TDO_PIN);
-	nondm_gpio_request(CPLD_TMS_PIN, "tms");
-	nondm_gpio_direction_output(CPLD_TMS_PIN, 1);
-	nondm_gpio_request(CPLD_TDI_PIN, "tdi");
-	nondm_gpio_direction_output(CPLD_TDI_PIN, 0);
-	nondm_gpio_request(CPLD_TCK_PIN, "tck");
-	nondm_gpio_direction_output(CPLD_TCK_PIN, 0);
+	ret |= dm_gpio_lookup_name("gpio1b19", &gpio_desc_tdo);
+	ret |= dm_gpio_request(&gpio_desc_tdo, "tdo");
+	ret |= dm_gpio_set_dir_flags(&gpio_desc_tdo, GPIOD_IS_IN);
+
+	ret |= dm_gpio_lookup_name("gpio1b20", &gpio_desc_tms);
+	ret |= dm_gpio_request(&gpio_desc_tms, "tms");
+	ret |= dm_gpio_set_dir_flags(&gpio_desc_tms, GPIOD_IS_OUT);
+
+	ret |= dm_gpio_lookup_name("gpio1b21", &gpio_desc_tdi);
+	ret |= dm_gpio_request(&gpio_desc_tdi, "tdi");
+	ret |= dm_gpio_set_dir_flags(&gpio_desc_tdi, GPIOD_IS_OUT);
+
+	ret |= dm_gpio_lookup_name("gpio1b22", &gpio_desc_tck);
+	ret |= dm_gpio_request(&gpio_desc_tck, "tck");
+	ret |= dm_gpio_set_dir_flags(&gpio_desc_tck, GPIOD_IS_OUT);
+
+	if (ret)
+		printf("failed to get JTAG pins\n");
 }
 
 static void rzn1_fpga_jtag_set_tdi(int value)
 {
-	nondm_gpio_set_value(CPLD_TDI_PIN, value);
+	dm_gpio_set_value(&gpio_desc_tdi, value);
 }
 
 static void rzn1_fpga_jtag_set_tms(int value)
 {
-	nondm_gpio_set_value(CPLD_TMS_PIN, value);
+	dm_gpio_set_value(&gpio_desc_tms, value);
 }
 
 static void rzn1_fpga_jtag_set_tck(int value)
 {
-	nondm_gpio_set_value(CPLD_TCK_PIN, value);
+	dm_gpio_set_value(&gpio_desc_tck, value);
 }
 
 static int rzn1_fpga_jtag_get_tdo(void)
 {
-	return nondm_gpio_get_value(CPLD_TDO_PIN);
+	return dm_gpio_get_value(&gpio_desc_tdo);
 }
 
 lattice_board_specific_func rzn1_fpga_fns = {
@@ -182,7 +196,6 @@ int board_init(void)
 	/* Enable SDHC0 */
 	rzn1_clk_set_gate(RZN1_CLK_SDIO0_ID, 1);
 	rzn1_clk_set_gate(RZN1_HCLK_SDIO0_ID, 1);
-	rzn1_clk_reset(RZN1_HCLK_SDIO0_ID);
 #endif
 
 #if defined(RZN1_ENABLE_GPIO)
@@ -288,7 +301,7 @@ int dram_init(void)
 	return 0;
 }
 
-#if defined(RZN1_ENABLE_ETHERNET)
+#if defined(RZN1_ENABLE_ETHERNET) && !defined(CONFIG_SPL_BUILD)
 /* RIN Ether Accessory (Switch Control) regs */
 #define MODCTRL				0x8
 #define MT5PT_SWITCH_UPSTREAM_PORT	4
@@ -351,40 +364,12 @@ static int rzn1_board_eth_init(void)
 
 	rzn1_rin_reset_clks();
 
-#ifdef RZN1_APPLY_ETH_PHY_RESET_PULSE
-	struct gpio_desc reset_gpio = {};
-	int node;
-
-	/* The PHY reset pin is in the 5-port switch DT node because the PHYs
-	 * are connected to the switch and not to the GMAC. */
-	node = fdt_node_offset_by_compatible(gd->fdt_blob, 0, "mtip,5pt_switch");
-	if (node < 0)
-		return node;
-
-	ret = gpio_request_by_name_nodev(gd->fdt_blob, node, "phy-reset-gpios", 0,
-				 &reset_gpio, GPIOD_IS_OUT);
-	if (ret)
+	/* Reset all PHYs */
+	ret = fdt_pulse_gpio("mtip,5pt_switch", "phy-reset-gpios", 15);
+	if (ret) {
+		printf("Failed to reset the PHY!\n");
 		return ret;
-
-	/* reset the phy */
-	ret = dm_gpio_set_value(&reset_gpio, 0);
-	if (ret)
-		return ret;
-
-	mdelay(15);
-
-	ret = dm_gpio_set_value(&reset_gpio, 1);
-	if (ret)
-		return ret;
-#endif
-
-	/* Enable Ethernet GMAC0 (only used on EB board) */
-	rzn1_clk_set_gate(RZN1_HCLK_GMAC0_ID, 1);
-	rzn1_clk_reset(RZN1_HCLK_GMAC0_ID);
-
-	/* Enable Ethernet GMAC1 */
-	rzn1_clk_set_gate(RZN1_HCLK_GMAC1_ID, 1);
-	rzn1_clk_reset(RZN1_HCLK_GMAC1_ID);
+	}
 
 	return ret;
 }
@@ -399,6 +384,7 @@ int board_eth_init(bd_t *bis)
 		return ret;
 
 	/* Enable Ethernet GMAC0 (only used on EB board) */
+	rzn1_clk_set_gate(RZN1_HCLK_GMAC0_ID, 1);
 	if (designware_initialize(RZN1_GMAC0_BASE, PHY_INTERFACE_MODE_RGMII_ID) >= 0)
 		ret++;
 
@@ -412,6 +398,7 @@ int board_eth_init(bd_t *bis)
 	 * Uses a fixed 1Gbps link to the 5-port switch.
 	 * The interface specified here is the PHY side, not 5-port switch side.
 	 */
+	rzn1_clk_set_gate(RZN1_HCLK_GMAC1_ID, 1);
 	if (designware_initialize_fixed_link(RZN1_GMAC1_BASE, if_type, SPEED_1000) >= 0)
 		ret++;
 
@@ -474,9 +461,7 @@ void spl_board_init(void)
 	preloader_console_init();
 	board_init();
 	dram_init();
-
-#if defined(RZN1_ENABLE_ETHERNET)
-	rzn1_board_eth_init();
-#endif
+	rzn1_rin_reset_clks();
+	fdt_pulse_gpio("mtip,5pt_switch", "phy-reset-gpios", 15);
 }
 #endif

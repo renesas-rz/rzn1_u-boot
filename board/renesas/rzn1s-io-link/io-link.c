@@ -110,7 +110,6 @@ int board_init(void)
 	/* Enable SDHC0 */
 	rzn1_clk_set_gate(RZN1_CLK_SDIO0_ID, 1);
 	rzn1_clk_set_gate(RZN1_HCLK_SDIO0_ID, 1);
-	rzn1_clk_reset(RZN1_HCLK_SDIO0_ID);
 #endif
 
 #if defined(RZN1_ENABLE_GPIO)
@@ -154,7 +153,7 @@ int dram_init(void)
 	return 0;
 }
 
-#if defined(RZN1_ENABLE_ETHERNET)
+#if defined(RZN1_ENABLE_ETHERNET) && !defined(CONFIG_SPL_BUILD)
 /* RIN Ether Accessory (Switch Control) regs */
 #define MODCTRL				0x8
 #define MT5PT_SWITCH_UPSTREAM_PORT	4
@@ -194,36 +193,6 @@ int phy_adjust_link_notifier(struct phy_device *phy)
 	return 0;
 }
 
-/* Helper func to get the PHY reset GPIO that is specified in the dtb */
-static int rzn1_phy_reset(const char *dt_node, const char *dt_prop)
-{
-	struct gpio_desc reset_gpio = {};
-	int node;
-	int ret;
-
-	node = fdt_node_offset_by_compatible(gd->fdt_blob, 0, dt_node);
-	if (node < 0)
-		return node;
-
-	ret = gpio_request_by_name_nodev(gd->fdt_blob, node, dt_prop, 0,
-				 &reset_gpio, GPIOD_IS_OUT);
-	if (ret)
-		return ret;
-
-	/* reset the phy */
-	ret = dm_gpio_set_value(&reset_gpio, 0);
-	if (ret)
-		return ret;
-
-	mdelay(15);
-
-	ret = dm_gpio_set_value(&reset_gpio, 1);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
 static int rzn1_board_eth_init(void)
 {
 	int ret = 0;
@@ -246,22 +215,14 @@ static int rzn1_board_eth_init(void)
 	rzn1_rin_reset_clks();
 
 	/* Reset GMAC0 PHY */
-	ret = rzn1_phy_reset("snps,dwmac", "snps,reset-gpio");
+	ret = fdt_pulse_gpio("snps,dwmac", "snps,reset-gpio", 15);
 	if (ret)
 		return ret;
 
 	/* Reset PHYs connected to the the 5-port switch */
-	ret = rzn1_phy_reset("mtip,5pt_switch", "phy-reset-gpios");
+	ret = fdt_pulse_gpio("mtip,5pt_switch", "phy-reset-gpios", 15);
 	if (ret)
 		return ret;
-
-	/* Enable Ethernet GMAC0 */
-	rzn1_clk_set_gate(RZN1_HCLK_GMAC0_ID, 1);
-	rzn1_clk_reset(RZN1_HCLK_GMAC0_ID);
-
-	/* Enable Ethernet GMAC1 */
-	rzn1_clk_set_gate(RZN1_HCLK_GMAC1_ID, 1);
-	rzn1_clk_reset(RZN1_HCLK_GMAC1_ID);
 
 	return ret;
 }
@@ -276,6 +237,7 @@ int board_eth_init(bd_t *bis)
 		return ret;
 
 	/* Enable Ethernet GMAC0 */
+	rzn1_clk_set_gate(RZN1_HCLK_GMAC0_ID, 1);
 	if (designware_initialize(RZN1_GMAC0_BASE, PHY_INTERFACE_MODE_RGMII_ID) >= 0)
 		ret++;
 
@@ -289,6 +251,7 @@ int board_eth_init(bd_t *bis)
 	 * Uses a fixed 1Gbps link to the 5-port switch.
 	 * The interface specified here is the PHY side, not 5-port switch side.
 	 */
+	rzn1_clk_set_gate(RZN1_HCLK_GMAC1_ID, 1);
 	if (designware_initialize_fixed_link(RZN1_GMAC1_BASE, if_type, SPEED_1000) >= 0)
 		ret++;
 
@@ -351,9 +314,6 @@ void spl_board_init(void)
 	preloader_console_init();
 	board_init();
 	dram_init();
-
-#if defined(RZN1_ENABLE_ETHERNET)
-	rzn1_board_eth_init();
-#endif
+	rzn1_rin_reset_clks();
 }
 #endif

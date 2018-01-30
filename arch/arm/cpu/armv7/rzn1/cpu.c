@@ -6,6 +6,7 @@
 #include <common.h>
 #include <cadence_ddr_ctrl.h>
 #include <asm/armv7.h>
+#include <asm/gpio.h>
 #include <asm/io.h>
 #include <usb.h>
 #include "ipcm.h"
@@ -13,6 +14,8 @@
 #include "renesas/rzn1-utils.h"
 #include "renesas/rzn1-clocks.h"
 #include "renesas/rzn1-sysctrl.h"
+
+DECLARE_GLOBAL_DATA_PTR;
 
 void lowlevel_init(void)
 {
@@ -223,6 +226,41 @@ int ft_board_setup(void *blob, bd_t *bd)
 	fdt_find_and_setprop(blob, "/chosen", "rzn1,bootaddr",
 			     &bootaddr, sizeof(bootaddr), 1);
 #endif
+	return 0;
+}
+
+/*
+ * Helper func to pulse a GPIO. The GPIO is specified as a DT node and property.
+ * This only works in SPL if the dt_node is marked with "u-boot,dm-pre-reloc;"
+ * and the DT node for the GPIO driver that the pin belongs to is also marked
+ * with "u-boot,dm-pre-reloc;"
+ */
+int fdt_pulse_gpio(const char *dt_node, const char *dt_prop, int ms)
+{
+	struct gpio_desc reset_gpio = {};
+	int node;
+	int ret;
+
+	node = fdt_node_offset_by_compatible(gd->fdt_blob, 0, dt_node);
+	if (node < 0)
+		return node;
+
+	ret = gpio_request_by_name_nodev(gd->fdt_blob, node, dt_prop, 0,
+				 &reset_gpio, GPIOD_IS_OUT);
+	if (ret)
+		return ret;
+
+	/* reset the phy */
+	ret = dm_gpio_set_value(&reset_gpio, 0);
+	if (ret)
+		return ret;
+
+	mdelay(ms);
+
+	ret = dm_gpio_set_value(&reset_gpio, 1);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 #endif
