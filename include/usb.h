@@ -32,7 +32,11 @@
 #define USB_ALTSETTINGALLOC		4
 #define USB_MAXALTSETTING		128	/* Hard limit */
 
-#define USB_MAX_DEVICE			32
+#if defined(CONFIG_USB_MAX_DEVICE)
+#define USB_MAX_DEVICE			CONFIG_USB_MAX_DEVICE
+#else
+#define USB_MAX_DEVICE			2
+#endif
 #define USB_MAXCONFIG			8
 #define USB_MAXINTERFACES		8
 #define USB_MAXENDPOINTS		16
