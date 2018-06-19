@@ -1089,8 +1089,18 @@ static int ehci_common_init(struct ehci_ctrl *ctrl, uint tweaks)
 #ifndef CONFIG_DM_USB
 int usb_lowlevel_stop(int index)
 {
+	int ret;
+
 	ehci_shutdown(&ehcic[index]);
-	return ehci_hcd_stop(index);
+	ret = ehci_hcd_stop(index);
+
+#ifdef CONFIG_SYS_USB_EHCI_BOARD_INIT
+	/* board dependant cleanup */
+	if (board_usb_cleanup(index, USB_INIT_HOST))
+		return -1;
+#endif
+
+	return ret;
 }
 
 int usb_lowlevel_init(int index, enum usb_init_type init, void **controller)
@@ -1098,6 +1108,12 @@ int usb_lowlevel_init(int index, enum usb_init_type init, void **controller)
 	struct ehci_ctrl *ctrl = &ehcic[index];
 	uint tweaks = 0;
 	int rc;
+
+#ifdef CONFIG_SYS_USB_EHCI_BOARD_INIT
+	/*  board dependant init */
+	if (board_usb_init(index, USB_INIT_HOST))
+		return -1;
+#endif
 
 	/**
 	 * Set ops to default_ehci_ops, ehci_hcd_init should call
