@@ -6,6 +6,7 @@
 
 #include <common.h>
 #include <dm.h>
+#include <dm/uclass-internal.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <errno.h>
 #include <fdtdec.h>
@@ -824,6 +825,49 @@ int gpio_get_number(const struct gpio_desc *desc)
 	uc_priv = dev->uclass_priv;
 
 	return uc_priv->gpio_base + desc->offset;
+}
+
+int gpio_set_hogs(void)
+{
+	const void *fdt = gd->fdt_blob;
+	struct uclass *uc;
+	struct udevice *dev;
+	struct udevice *realdev;
+	int np;
+	u32 gpios[2], index;
+	struct dm_gpio_ops *ops;
+	const char *label = "hog";
+	int ret;
+
+	ret = uclass_get(UCLASS_GPIO, &uc);
+	if (ret)
+		return ret;
+
+	uclass_foreach_dev(dev, uc) {
+		fdt_for_each_subnode(np, fdt, dev->of_offset) {
+
+			if (!fdt_get_property(fdt, np, "gpio-hog", NULL))
+				continue;
+
+			if (fdtdec_get_int_array(fdt, np, "gpios", gpios, ARRAY_SIZE(gpios)))
+				continue;
+			index = gpios[0];
+
+			/* This ensures all required drivers are probed */
+			if (uclass_get_device_tail(dev, 0, &realdev))
+				return ret;
+
+			ops = gpio_get_ops(dev);
+			if (ops->request)
+				ops->request(dev, index, label);
+			if (fdt_get_property(fdt, np, "output-low", NULL))
+				ops->direction_output(dev, index, 0);
+			if (fdt_get_property(fdt, np, "output-high", NULL))
+				ops->direction_output(dev, index, 1);
+		}
+	}
+
+	return 0;
 }
 
 static int gpio_post_probe(struct udevice *dev)

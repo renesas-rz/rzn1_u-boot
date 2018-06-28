@@ -630,4 +630,14 @@ int dm_gpio_set_dir_flags(struct gpio_desc *desc, ulong flags);
  */
 int gpio_get_number(const struct gpio_desc *desc);
 
+/**
+ * gpio_set_hogs() - Set GPIO pins that are defined as gpio-hog
+ *
+ * This function looks for "gpio-hog" nodes in the DT and sets the GPIOs
+ * accordingly. See Linux Documentation/devicetree/bindings/gpio/gpio.txt
+ *
+ * @return 0 if OK, -ve on error
+ */
+int gpio_set_hogs(void);
+
 #endif	/* _ASM_GENERIC_GPIO_H_ */
