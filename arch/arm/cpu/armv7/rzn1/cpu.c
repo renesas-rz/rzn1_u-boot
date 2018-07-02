@@ -37,31 +37,157 @@ void rzn1_sysctrl_div(u32 reg, u32 div)
 
 void rzn1_setup_pinmux(void);
 
+#define USBF_EPCTR		(RZN1_USB_DEV_BASE + 0x1000 + 0x10)
+#define USBF_EPCTR_EPC_RST	BIT(0)
+#define USBF_EPCTR_PLL_RST	BIT(2)
+#define USBF_EPCTR_DIRPD	BIT(12)
+
+#define USBH_USBCTR		(RZN1_USB_HOST_BASE + 0x10000 + 0x834)
+#define USBH_USBCTR_USBH_RST	BIT(0)
+#define USBH_USBCTR_PCICLK_MASK	BIT(1)
+#define USBH_USBCTR_PLL_RST	BIT(2)
+#define USBH_USBCTR_DIRPD	BIT(9)
+
+static int rzn1_usb_pll_locked(void)
+{
+	return (sysctrl_readl(RZN1_SYSCTRL_REG_USBSTAT) &
+		BIT(RZN1_SYSCTRL_REG_USBSTAT_PLL_LOCK));
+}
+
+static void rzn1_enable_usb_pll(int h2mode)
+{
+	u32 sysc_cfg_usb = RZN1_SYSTEM_CTRL_BASE + RZN1_SYSCTRL_REG_CFG_USB;
+	u32 val;
+
+	/* If we have the correct mode and PLL is locked, nothing to do */
+	val = sysctrl_readl(RZN1_SYSCTRL_REG_CFG_USB);
+	val >>= RZN1_SYSCTRL_REG_CFG_USB_H2MODE;
+	if (((val & 1) == h2mode) && rzn1_usb_pll_locked())
+		return;
+
+	/* Disable UART user of the USB clock */
+	if (CONFIG_SYS_NS16550_CLK == 48000000)
+		rzn1_clk_set_gate(RZN1_CLK_USBUART0_ID, 0);
+
+	/* Enable USB clocks, otherwise we can't access the USB registers */
+	rzn1_clk_set_gate(RZN1_HCLK_USBF_ID, 1);
+	rzn1_clk_set_gate(RZN1_HCLK_USBH_ID, 1);
+
+	/* Hold USBF and USBH in reset */
+	writel(USBH_USBCTR_USBH_RST | USBH_USBCTR_PCICLK_MASK, USBH_USBCTR);
+	writel(USBF_EPCTR_EPC_RST, USBF_EPCTR);
+	/* Hold USBPLL in reset */
+	setbits_le32(USBH_USBCTR, USBH_USBCTR_PLL_RST);
+	udelay(2);
+
+	/* Power down USB PLL, setting any DIRPD bit will do this */
+	setbits_le32(USBH_USBCTR, USBH_USBCTR_DIRPD);
+
+	/* Stop USB suspend from powering down the USB PLL */
+	/* Note: have to update these bits at the same time */
+	val = sysctrl_readl(RZN1_SYSCTRL_REG_CFG_USB);
+	val |= BIT(RZN1_SYSCTRL_REG_CFG_USB_FRCLK48MOD);
+	if (h2mode)
+		val |= BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE);
+	else
+		val &= ~BIT(RZN1_SYSCTRL_REG_CFG_USB_H2MODE);
+	sysctrl_writel(val, RZN1_SYSCTRL_REG_CFG_USB);
+
+	/* Power up USB PLL, all DIRPD bits need to be cleared */
+	clrbits_le32(sysc_cfg_usb, BIT(RZN1_SYSCTRL_REG_CFG_USB_DIRPD));
+	clrbits_le32(USBF_EPCTR, USBF_EPCTR_DIRPD);
+	clrbits_le32(USBH_USBCTR, USBH_USBCTR_DIRPD);
+	udelay(1000);
+
+	/* Release USBPLL reset, either PLL_RST bit will do this */
+	clrbits_le32(USBH_USBCTR, USBH_USBCTR_PLL_RST);
+
+	/* Turn off USB Host/Func clocks */
+	rzn1_clk_set_gate(RZN1_HCLK_USBF_ID, 0);
+	rzn1_clk_set_gate(RZN1_HCLK_USBH_ID, 0);
+
+	while (!rzn1_usb_pll_locked())
+		;
+
+	/* Enable UART user of the USB clock */
+	if (CONFIG_SYS_NS16550_CLK == 48000000)
+		rzn1_clk_set_gate(RZN1_CLK_USBUART0_ID, 1);
+}
+
+#if defined(RZN1_DONT_TURN_OFF_CLOCKS)
+static void rzn1_start_usb_compat(void)
+{
+	/*
+	 * Technically, we only need to enable the USB PLL if the UART input
+	 * clock is set to 48MHz, or if using USB in U-Boot.
+	 * However, older RZ/N1 Linux kernels need the PLL on and the USB Func
+	 * taken out of reset.
+	 */
+	rzn1_enable_usb_pll(0);
+
+	/* Enable USBF bus clock */
+	rzn1_clk_set_gate(RZN1_HCLK_USBF_ID, 1);
+
+	/* Release USBF resets */
+#define USBFUNC_EPCTR		(RZN1_USB_DEV_BASE + 0x1000 + 0x10)
+	writel(0, USBFUNC_EPCTR);
+}
+#endif
+
 int arch_cpu_init(void)
 {
+#if !defined(RZN1_DONT_TURN_OFF_CLOCKS)
+	int i;
+
+	/* Turn off all clocks to save power */
+	for (i = 0; i <= RZN1_CLK_RTOS_MDC_ID; i++)
+		rzn1_clk_set_gate(i, 0);
+#endif
+
 	/* 500MHz clock input to the CPU clock divider */
 	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_CA7DIV, 1);
 
 	/* Setup clocks to IP blocks, all are divided down from a 1GHz PLL */
 
-	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_PG0_UARTDIV, 1000000000 / CONFIG_SYS_NS16550_CLK);
-	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_PG1_PR2DIV, 1000000000 / CONFIG_SYS_NS16550_CLK);
+	/* UART 48MHz is special, it doesn't come from the UART PLL divider */
+	if (CONFIG_SYS_NS16550_CLK == 48000000) {
+		u32 val;
 
-	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_NFLASHDIV, 1000000000 / CONFIG_SYS_NAND_CLOCK);
+		rzn1_enable_usb_pll(0);
 
-	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_QSPI0DIV, 1000000000 / CONFIG_CQSPI_REF_CLK);
+		/* UARTs 0..2 */
+		val = sysctrl_readl(RZN1_SYSCTRL_REG_PWRCTRL_PG0_0);
+		val |= BIT(RZN1_SYSCTRL_REG_PWRCTRL_PG0_0_UARTCLKSEL);
+		sysctrl_writel(val, RZN1_SYSCTRL_REG_PWRCTRL_PG0_0);
 
-#if defined (CONFIG_ARCH_RZN1S)
-	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_QSPI1DIV, 1000000000 / CONFIG_CQSPI_REF_CLK);
+		/* UARTs 3..7 */
+		val = sysctrl_readl(RZN1_SYSCTRL_REG_PWRCTRL_PG1_PR2);
+		val |= BIT(RZN1_SYSCTRL_REG_PWRCTRL_PG1_PR2_UARTCLKSEL);
+		sysctrl_writel(val, RZN1_SYSCTRL_REG_PWRCTRL_PG1_PR2);
+	} else {
+		rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_PG0_UARTDIV, RZN1_UART_PLL_DIV);
+		rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_PG1_PR2DIV, RZN1_UART_PLL_DIV);
+	}
+
+#if defined(RZN1_DONT_TURN_OFF_CLOCKS)
+	rzn1_start_usb_compat();
 #endif
 
-	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_PG0_I2CDIV, 1000 / IC_CLK);
+	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_NFLASHDIV, RZN1_NAND_PLL_DIV);
 
-	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_SDIO0DIV, 1000/SDHC_CLK_MHZ);
+	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_QSPI0DIV, RZN1_QSPI_PLL_DIV);
+
+#if defined (CONFIG_ARCH_RZN1S)
+	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_QSPI1DIV, RZN1_QSPI_PLL_DIV);
+#endif
+
+	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_PG0_I2CDIV, RZN1_I2C_PLL_DIV);
+
+	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_SDIO0DIV, RZN1_SDHC_PLL_DIV);
 	sysctrl_writel(SDHC_CLK_MHZ, RZN1_SYSCTRL_REG_CFG_SDIO0);
 
 #if !defined (CONFIG_ARCH_RZN1L)
-	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_SDIO1DIV, 1000/SDHC_CLK_MHZ);
+	rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_SDIO1DIV, RZN1_SDHC_PLL_DIV);
 	sysctrl_writel(SDHC_CLK_MHZ, RZN1_SYSCTRL_REG_CFG_SDIO1);
 #endif
 
@@ -74,56 +200,43 @@ int arch_cpu_init(void)
 	rzn1_clk_set_gate(RZN1_HCLK_UART0_ID, 1);
 	rzn1_clk_set_gate(RZN1_CLK_UART0_ID, 1);
 
+	/* ROM needed, 2nd core in BootROM and SPL calls BootROM functions */
+	rzn1_clk_set_gate(RZN1_HCLK_ROM_ID, 1);
+
 	rzn1_setup_pinmux();
 
 	return 0;
 }
 
-/* Configure clocks for the USB blocks and reset IP */
+static bool rzn1_usb_func_en = true;
+void rzn1_uses_usb_func(bool func)
+{
+	rzn1_usb_func_en = func;
+}
+
+/* Configure clocks for the USB blocks */
 int rzn1_usb_init(int index, enum usb_init_type init)
 {
-#define USBFUNC_EPCTR		(RZN1_USB_DEV_BASE + 0x1000 + 0x10)
-
-	u32 val;
+	rzn1_enable_usb_pll(!rzn1_usb_func_en);
 
 	/* Enable USB clocks */
-	rzn1_clk_set_gate(RZN1_HCLK_USBPM_ID, 1);
-	rzn1_clk_set_gate(RZN1_HCLK_USBF_ID, 1);
-	rzn1_clk_set_gate(RZN1_HCLK_USBH_ID, 1);
+	if (init == USB_INIT_HOST) {
+		rzn1_clk_set_gate(RZN1_HCLK_USBH_ID, 1);
+		rzn1_clk_set_gate(RZN1_HCLK_USBPM_ID, 1);
+		rzn1_clk_set_gate(RZN1_CLK_PCI_USB_ID, 1);
+	}
+	if (init == USB_INIT_DEVICE)
+		rzn1_clk_set_gate(RZN1_HCLK_USBF_ID, 1);
 
-	/* USB Host clocks */
-	rzn1_clk_set_gate(RZN1_CLK_PCI_USB_ID, 1);
-	rzn1_clk_set_gate(RZN1_CLK_48MHZ_PG_F_ID, 1);
+	return 0;
+}
 
+int rzn1_usb_cleanup(int index, enum usb_init_type init)
+{
 	/*
-	 * Enable USB on port 1 as the Linux kernel doesn't deal with
-	 * these irregular register bits
+	 * TODO Turn off the USB clock when we don't have to worry about old
+	 * versions of Linux, see rzn1_start_usb_compat()
 	 */
-	val = sysctrl_readl(RZN1_SYSCTRL_REG_CFG_USB);
-	val |= (1 << RZN1_SYSCTRL_REG_CFG_USB_DIRPD);
-	val |= (1 << RZN1_SYSCTRL_REG_CFG_USB_FRCLK48MOD);
-	if (index == 0 && init == USB_INIT_HOST)
-		val |= (1 << RZN1_SYSCTRL_REG_CFG_USB_H2MODE);
-	sysctrl_writel(val, RZN1_SYSCTRL_REG_CFG_USB);
-
-	/* Hold USBF in reset */
-	writel(5, USBFUNC_EPCTR);
-	udelay(100);
-
-	/* Power up USB PLL */
-	val = sysctrl_readl(RZN1_SYSCTRL_REG_CFG_USB);
-	val &= ~(1 << RZN1_SYSCTRL_REG_CFG_USB_DIRPD);
-	sysctrl_writel(val, RZN1_SYSCTRL_REG_CFG_USB);
-	udelay(100000);
-
-	/* Release USBF resets */
-	writel(0, USBFUNC_EPCTR);
-
-	/* Wait for USB PLL lock */
-	do {
-		val = sysctrl_readl(RZN1_SYSCTRL_REG_USBSTAT);
-	} while (!(val & (1 << RZN1_SYSCTRL_REG_USBSTAT_PLL_LOCK)));
-
 	return 0;
 }
 
@@ -292,6 +405,27 @@ void rzn1_ddr_ctrl_init(const u32 *reg0, const u32 *reg350, u32 ddr_size)
 			   ddr_start_addr, ddr_size);
 }
 
+#if defined (CONFIG_CPU_V7M)
+static void start_cm3(void)
+{
+	/*
+	 * U-Boot is already running on the Cortex M3, start the code by setting
+	 * the SP and PC as they would from a reset.
+	 */
+	u32 sp = readl(RZN1_SRAM_ID_BASE);
+	u32 pc = readl(RZN1_SRAM_ID_BASE + 4);
+
+	__asm__ __volatile__("mov sp, %0"
+			     :
+			     : "r" (sp)
+			     : "memory");
+	__asm__ __volatile__("mov pc, %0"
+			     :
+			     : "r" (pc)
+			     : "memory");
+}
+#endif
+
 /* Enable the Cortex M3 clock and it starts executing, IVT is at 0x04000000 */
 static int do_rzn1_start_cm3(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
@@ -299,7 +433,11 @@ static int do_rzn1_start_cm3(cmd_tbl_t *cmdtp, int flag, int argc, char * const 
 
 	msg.msg_type = 1;
 	msg.wait_rsp = 0;
+#if defined(CONFIG_ENV_OFFSET)
 	msg.env_ptr = RZN1_V_QSPI_BASE + CONFIG_ENV_OFFSET;
+#else
+	msg.env_ptr = 0;
+#endif
 
 	/* Check the CM3 reset vector has something there */
 	if (readl(RZN1_SRAM_ID_BASE + 4) == 0)
@@ -322,6 +460,11 @@ static int do_rzn1_start_cm3(cmd_tbl_t *cmdtp, int flag, int argc, char * const 
 
 	ipc_send(IPC_TX_MBOX, (void *)&msg);
 
+#if defined (CONFIG_CPU_V7M)
+	start_cm3();
+#else
+	rzn1_clk_set_gate(RZN1_HCLK_CM3_ID, 1);
+
 	/* Reset then enable the Cortex M3 clock */
 	sysctrl_writel(0x5, RZN1_SYSCTRL_REG_PWRCTRL_CM3);
 	udelay(10);
@@ -330,6 +473,7 @@ static int do_rzn1_start_cm3(cmd_tbl_t *cmdtp, int flag, int argc, char * const 
 	/* Wait for the CM3 to send a msg back */
 	if (msg.wait_rsp)
 		ipc_recv_all(IPC_RX_MBOX, (void *)&msg);
+#endif
 
 	return 0;
 }

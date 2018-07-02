@@ -12,8 +12,9 @@
 #include <common.h>
 #include <nand.h>
 
-struct mtd_info nand_info_data;
-struct mtd_info *nand_info[1] = { &nand_info_data };
+static int nand_inited;
+
+struct mtd_info *nand_info[1];
 
 /* Generic SPL functions below */
 int nand_scan_ident(struct mtd_info *mtd, int max_chips,
@@ -50,7 +51,7 @@ int nand_scan_ident(struct mtd_info *mtd, int max_chips,
 	chip->cmdfunc(mtd, NAND_CMD_READID, 0x20, -1);
 	if (chip->read_byte(mtd) != 'O' || chip->read_byte(mtd) != 'N' ||
 	    chip->read_byte(mtd) != 'F' || chip->read_byte(mtd) != 'I') {
-		debug("NAND not ONFi device");
+		printf("NAND not ONFi device");
 		return -EIO;
 	}
 
@@ -85,6 +86,9 @@ int nand_scan_tail(struct mtd_info *mtd)
 
 int nand_register(int devnum, struct mtd_info *mtd)
 {
+	if (devnum > 0)
+		return -EINVAL;
+	nand_info[0] = mtd;
 	return 0;
 }
 
@@ -99,10 +103,11 @@ void nand_deselect(void)
 
 void nand_init(void)
 {
-	struct mtd_info *mtd = nand_info[0];
+	struct mtd_info *mtd;
 	struct nand_chip *chip;
 
 	board_nand_init();
+	mtd = nand_info[0];
 
 	chip = mtd->priv;
 
@@ -146,12 +151,20 @@ static int spl_is_badblock(struct mtd_info *mtd, int page)
 
 int nand_spl_load_image(uint32_t offs, unsigned int size, void *buf)
 {
-	struct mtd_info *mtd = nand_info[0];
-	struct nand_chip *chip = mtd->priv;
+	struct mtd_info *mtd;
+	struct nand_chip *chip;
 	unsigned int page;
 	unsigned int nand_page_per_block;
 	unsigned int sz = 0;
 	uint32_t data_offs;
+
+	/* Allow multiple calls */
+	if (!nand_inited) {
+		nand_init();
+		nand_inited = 1;
+	}
+	mtd = nand_info[0];
+	chip = mtd->priv;
 
 	page = offs >> chip->page_shift;
 	nand_page_per_block = mtd->erasesize / mtd->writesize;

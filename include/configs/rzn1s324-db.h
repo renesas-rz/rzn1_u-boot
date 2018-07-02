@@ -17,8 +17,10 @@
 #define CONFIG_BOARD_NAME	"Renesas RZN1S-DB"
 
 /* The RZ/N1S can only support a 45MHz SDHCI clock on this board */
+#undef RZN1_SDHC_PLL_DIV
 #undef SDHC_CLK_MHZ
-#define SDHC_CLK_MHZ			45
+#define RZN1_SDHC_PLL_DIV		22
+#define SDHC_CLK_MHZ			(1000 / RZN1_SDHC_PLL_DIV)
 
 /*
  * U-Boot switches into NONSEC mode based on the "bootm_boot_mode" environment
@@ -221,25 +223,21 @@
 /* Offset corresponds to DFU sf_rpkgt */
 #define CONFIG_SYS_SPI_U_BOOT_OFFS      0x10000
 
-/* Make SPL skip checking the signatures of loaded images */
-/* WARNING! This is for development & testing only */
-#define RZN1_SKIP_BOOTROM_CALLS
-
 /*
  * This is the hash of the public key used to sign BLp wrapped images that is
  * loaded by U-Boot/SPL. If you are not verifying the signature of packages, it
  * will not be used.
- * This particular hash is key 6 from keys used during testing of the BootROM.
+ * This particular public key hash is programmed into the Secure Boot boards.
  */
 #define RZN1_SPL_RPKG_HASH \
-	0xf5, 0x05, 0x93, 0x54, \
-	0xda, 0x47, 0x4f, 0xe4, \
-	0x1f, 0x2c, 0x7d, 0xfe, \
-	0xbb, 0x41, 0x0d, 0xed, \
-	0xa3, 0x25, 0x3f, 0xef, \
-	0xa7, 0x29, 0x0c, 0x28, \
-	0x07, 0x1f, 0xbf, 0x76, \
-	0x26, 0xa3, 0x7e, 0x4c,
+	0x36, 0x89, 0xf7, 0x94, \
+	0x15, 0xd6, 0x1a, 0x6f, \
+	0x4f, 0xfb, 0x5e, 0x9a, \
+	0x94, 0x81, 0x7a, 0x36, \
+	0xd6, 0x48, 0x35, 0x99, \
+	0x2c, 0x62, 0x45, 0xee, \
+	0x5f, 0x49, 0x2a, 0x65, \
+	0x47, 0xf9, 0xc5, 0xfd
 
 #endif /* RZN1_ENABLE_SPL */
 

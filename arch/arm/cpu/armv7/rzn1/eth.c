@@ -63,8 +63,8 @@ void rzn1_switch_setup_port_speed(int port, int speed, int enable)
 {
 	/*
 	 * The MoreThanIP 5 port switch has 5 ports. Port 4 is also known as
-	 * PORTIN and is connected to GMAC2 or MAC RTOS. The other 4 ports (0
-	 * to 3) are downstream and can connect to a PHY.
+	 * PORTIN and is connected to GMAC2 or HW-RTOS GMAC. The other 4 ports
+	 * (0 to 3) are downstream and can connect to a PHY.
 	 */
 	rzn1_mt5pt_switch_setup_port_speed(port, speed);
 

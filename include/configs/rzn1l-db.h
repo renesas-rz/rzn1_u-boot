@@ -33,6 +33,7 @@
 #define RZN1_ENABLE_QSPI
 #undef RZN1_ENABLE_NAND
 #define RZN1_ENABLE_USBF
+#define RZN1_ENABLE_USBH
 
 /* SRAM */
 #define CONFIG_SYS_TEXT_BASE		0x200a0000
@@ -112,6 +113,17 @@
  #define CONFIG_PHY1_ADDR		4
 #endif /* RZN1_ENABLE_ETHERNET */
 
+/***** USB Host *****/
+#if defined(RZN1_ENABLE_USBH)
+ #define CONFIG_GENERIC_MMC
+ #define CONFIG_DOS_PARTITION
+ #define CONFIG_FS_FAT_MAX_CLUSTSIZE (8 * 1024)
+ #define CONFIG_USB_EHCI
+ #define CONFIG_USB_EHCI_RMOBILE
+ #define CONFIG_USB_MAX_CONTROLLER_COUNT	1
+ #define CONFIG_SYS_USB_OHCI_MAX_ROOT_PORTS	1
+#endif /* RZN1_ENABLE_USBH */
+
 /***** USB Device aka Gadget aka Function *****/
 #if defined(RZN1_ENABLE_USBF)
  /* Default is... 8 MB !! Note that it needs to be AT LEAST the size of
@@ -121,16 +133,10 @@
 
  #define DFU_EXT_INFO \
 	"dfu_ext_info=" \
-	"sf sf_spl raw 0 10000;" \
-	"sf sf_rpkgt raw 10000 10000;" \
-	"sf sf_uboot raw 20000 80000;" \
+	"sf sf_bootstrap raw 0 10000;" \
+	"sf sf_uboot raw 10000 80000;" \
 	"sf sf_env raw a0000 10000;" \
-	"sf sf_dtb raw b0000 20000;" \
-	"sf sf_cm3 raw d0000 100000;" \
-	"sf sf_kernel raw 1d0000 600000;" \
-	"sf sf_data raw 7d0000 0;" \
-	"sf sf_vxworks raw d0000 600000;" \
-	"ram r_kernel ram 80000000 400000\0"
+	"sf sf_cm3 raw d0000 100000\0"
 #else
  #define DFU_EXT_INFO
 #endif /* RZN1_ENABLE_USBF */

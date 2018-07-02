@@ -25,19 +25,21 @@
 #define CONFIG_SYS_CLK_FREQ		CONFIG_SYS_HZ_CLOCK
 
 /*
- * UART clock. The PLL can go up 83.33MHz, but you need to use a specific PLL
+ * UART clock. The PLL divider can go up 83.33MHz, but you need a specific PLL
  * setting to achieve the required accuracy at high bitrates. All of the clock
  * rates below are ok for use up to 115200 in addition to those listed.
  * Note that U-Boot cannot receive data above 1Mbps due to lack of hardware flow
  * control on UART0 and CPU not being able to read the data quick enough.
- * 14705882Hz achieves < 0.3% error for 230.4K, 460.8K and 921.6K bitrates.
- * 47619047Hz achieves < 0.8% error for 1M, 1.5M and 3M bitrates.
- * 55555555Hz achieves < 0.8% error for 1.152M and 3.5M bitrates.
+ * Div=68, 14.70MHz achieves < 0.3% error for 230.4K, 460.8K, 921.6K bitrates.
+ * Div=21, 47.62Hz achieves < 0.8% error for 1M, 1.5M and 3M bitrates.
+ * Div=18, 55.55Hz achieves < 0.8% error for 1.152M and 3.5M bitrates.
  */
-#define CONFIG_SYS_NS16550_CLK		47619047
+#define RZN1_UART_PLL_DIV		21
+#define CONFIG_SYS_NS16550_CLK		(1000000000 / RZN1_UART_PLL_DIV)
 
 /* 83.33MHz NAND Flash Ctrl clock, fastest as NAND is an async i/f. */
-#define CONFIG_SYS_NAND_CLOCK		83333333
+#define RZN1_NAND_PLL_DIV		12
+#define CONFIG_SYS_NAND_CLOCK		(1000000000 / RZN1_NAND_PLL_DIV)
 
 /* 250MHz QSPI Ctrl clock. The driver divides to meet the requested
  * SPI clock. This sysctrl divider can divide by any number, whereas
@@ -46,13 +48,16 @@
  * SPI clock maximum is 62.5MHz. With this setting you can get SPI
  * clocks of 62.5MHz, 31.25MHz, etc.
  */
-#define CONFIG_CQSPI_REF_CLK		250000000
+#define RZN1_QSPI_PLL_DIV		4
+#define CONFIG_CQSPI_REF_CLK		(1000000000 / RZN1_QSPI_PLL_DIV)
 
 /* 83.33MHz I2C clock */
-#define IC_CLK				83
+#define RZN1_I2C_PLL_DIV		12
+#define IC_CLK				(1000 / RZN1_I2C_PLL_DIV)
 
 /* 50MHz SDHCI clock */
-#define SDHC_CLK_MHZ			50
+#define RZN1_SDHC_PLL_DIV		20
+#define SDHC_CLK_MHZ			(1000 / RZN1_SDHC_PLL_DIV)
 
 
 /* SRAM */
@@ -97,6 +102,10 @@
 
 /* Ethernet */
 #define CONFIG_DW_ALTDESCRIPTOR
+
+/* USB */
+#define CONFIG_SYS_USB_EHCI_BOARD_INIT
+#define CONFIG_USB_MAX_DEVICE		2
 
 #define CONFIG_SYS_BOOTM_LEN	(64 << 20)	/* Increase max gunzip size */
 

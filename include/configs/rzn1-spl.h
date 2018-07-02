@@ -14,9 +14,7 @@
 #define CONFIG_SPL_BOARD_INIT
 
 /* This is required to fish the ethernet addresses from the environment */
-#if defined(RZN1_ENABLE_ETHERNET)
 #define CONFIG_SPL_ENV_SUPPORT
-#endif
 
 #if defined(CONFIG_SPL_NAND_LOAD)
 	#define CONFIG_SPL_NAND_DRIVERS

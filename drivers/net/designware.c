@@ -484,7 +484,7 @@ static int dw_phy_init(struct dw_eth_dev *priv, void *dev)
 
 #ifdef CONFIG_PHY1_ADDR
 	if (nr_dw_macs == 1)
-		mask = 1 << CONFIG_PHY1_ADDR;
+		mask = 1 << getenv_ulong("switch_phy_addr", 10, CONFIG_PHY1_ADDR);
 #endif
 	nr_dw_macs++;
 

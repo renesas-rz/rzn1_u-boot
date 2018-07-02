@@ -20,12 +20,6 @@
 	compatible = "renesas,rzn1s-io-link", "renesas,rzn1";
 
 	chosen {
-		/*
-		 * This is a default command line to help with booting using
-		 * qemu and a ramdisk, it is not meant to stay in the final
-		 * file
-		 g_mass_storage.removable=y g_mass_storage.stall=n
-		 */
 		bootargs = "console=ttyS0,115200";
 		stdout-path = &uart0;
 		linux,stdout-path = &uart0;
@@ -116,12 +110,9 @@
 #define mdio1 hoard
 #define lcd fb0
 
-#include "rzn1s-io-link-pinmux.dts"
+#include "rzn1s-io-link-pinmux.dtsi"
 
-/* If you want to use High Resolution timers (hrtimers), e.g. for real-time
- * Linux, you need more than just the ARM architected timer. Hence we enable
- * timer1. Note, timer0 may be used by the Cortex M3 software.
- */
+/* Note, timer0 may be used by the Cortex M3 software */
 &timer1 {
 	status = "okay";
 	/* Enable the /25 prescaler only on the 16-bit timers */
@@ -275,7 +266,7 @@
 		spi-cpha;
 		spi-cpol;
 		spi-rx-bus-width = <4>;
-		renesas,rzn1-read-cmd = <0x6b 8 0>;
+		renesas,rzn1-read-cmd = <0xeb 6 1>;
 		renesas,rzn1-readcap-delay = <1>;
 		/* The properties below are used by U-Boot */
 		tshsl-ns = <30>;
@@ -340,7 +331,7 @@
 		spi-cpha;
 		spi-cpol;
 		spi-rx-bus-width = <4>;
-		renesas,rzn1-read-cmd = <0x6b 8 0>;
+		renesas,rzn1-read-cmd = <0xeb 6 1>;
 		renesas,rzn1-readcap-delay = <1>;
 		/* The properties below are used by U-Boot */
 		tshsl-ns = <30>;

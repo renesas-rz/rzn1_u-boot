@@ -54,30 +54,39 @@ int rzn1_clk_set_gate(int clkdesc_id, int on)
 	const struct rzn1_clkdesc *g = &rzn1_clock_list[clkdesc_id];
 	u32 timeout;
 
-	BUG_ON(!clk_mgr_base_addr);
-	BUG_ON(!g->clock.reg);
+#if defined (CONFIG_ARCH_RZN1L)
+	/* On RZ/N1L, don't change these clocks */
+	if (clkdesc_id == RZN1_CLK_CM3_ID ||
+	    clkdesc_id == RZN1_HCLK_CM3_ID ||
+	    clkdesc_id == RZN1_HCLK_ROM_ID)
+		return 0;
+#endif
 
-	if (!on && g->masteridle.reg) {
-		/* Set 'Master Idle Request' bit */
+
+	BUG_ON(!clk_mgr_base_addr);
+	if (!g->clock.reg)
+		return -1;
+
+	/* Set 'Master Idle Request' bit */
+	if (!on && g->masteridle.reg)
 		clk_mgr_desc_set(&g->masteridle, 1);
 
-		/* Wait for Master Idle Request acknowledge */
-		if (g->mirack.reg) {
-			for (timeout = 100000; timeout &&
-				!clk_mgr_desc_get(&g->mirack); timeout--)
-					;
-			if (!timeout)
-				return -1;
-		}
+	/* Wait for Master Idle Request acknowledge */
+	if (!on && g->mirack.reg) {
+		for (timeout = 100000; timeout &&
+			!clk_mgr_desc_get(&g->mirack); timeout--)
+				;
+		if (!timeout)
+			return -1;
+	}
 
-		/* Wait for Master Idle Status signal */
-		if (g->mistat.reg) {
-			for (timeout = 100000; timeout &&
-				!clk_mgr_desc_get(&g->mistat); timeout--)
-					;
-			if (!timeout)
-				return -1;
-		}
+	/* Wait for Master Idle Status signal */
+	if (!on && g->mistat.reg) {
+		for (timeout = 100000; timeout &&
+			!clk_mgr_desc_get(&g->mistat); timeout--)
+				;
+		if (!timeout)
+			return -1;
 	}
 
 	/* Enable/disable the clock */
@@ -107,14 +116,14 @@ int rzn1_clk_set_gate(int clkdesc_id, int on)
 	}
 
 	/* Clear 'Master Idle Request' bit */
-	if (g->masteridle.reg)
-		clk_mgr_desc_set(&g->masteridle, !on);
+	if (on && g->masteridle.reg)
+		clk_mgr_desc_set(&g->masteridle, 0);
 
 
-	/* Wait for Master Idle Request acknowledge */
-	if (g->mirack.reg) {
+	/* Wait for Master Idle Status signal */
+	if (on && g->mistat.reg) {
 		for (timeout = 100000; timeout &&
-			clk_mgr_desc_get(&g->mirack); timeout--)
+			clk_mgr_desc_get(&g->mistat); timeout--)
 				;
 		if (!timeout)
 			return -1;
@@ -128,7 +137,6 @@ void rzn1_clk_reset(int clkdesc_id)
 	const struct rzn1_clkdesc *g = &rzn1_clock_list[clkdesc_id];
 
 	BUG_ON(!clk_mgr_base_addr);
-	BUG_ON(!g->clock.reg);
 
 	if (g->reset.reg) {
 		clk_mgr_desc_set(&g->reset, 0);
@@ -142,7 +150,6 @@ void rzn1_clk_reset_state(int clkdesc_id, int level)
 	const struct rzn1_clkdesc *g = &rzn1_clock_list[clkdesc_id];
 
 	BUG_ON(!clk_mgr_base_addr);
-	BUG_ON(!g->clock.reg);
 
 	if (g->reset.reg)
 		clk_mgr_desc_set(&g->reset, level);

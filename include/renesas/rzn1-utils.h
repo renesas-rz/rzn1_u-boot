@@ -34,7 +34,9 @@ static inline int is_rzn1d(void)
 int fdt_pulse_gpio(const char *dt_node, const char *dt_prop, int ms);
 
 /* USB */
+void rzn1_uses_usb_func(bool func);
 int rzn1_usb_init(int index, enum usb_init_type init);
+int rzn1_usb_cleanup(int index, enum usb_init_type init);
 
 /* PinMux */
 void rzn1_pinmux_set(u32 setting);

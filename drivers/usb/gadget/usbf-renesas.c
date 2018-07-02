@@ -957,6 +957,10 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	}
 	INIT_LIST_HEAD(&chip->gadget.ep_list);
 
+	/* get out of reset */
+	writel(readl(&chip->regs->epctr) & ~D_SYS_EPC_RST, &chip->regs->epctr);
+	writel(readl(&chip->regs->epctr) & ~D_SYS_PLL_RST, &chip->regs->epctr);
+
 	for (i = 0; i < CFG_NUM_ENDPOINTS; ++i) {
 		struct f_endpoint init = {
 			.ep = {
@@ -998,10 +1002,6 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	writel(D_SYS_VBUS_INTEN, &chip->regs->sysbinten);
 #endif
 
-	/* get out of reset */
-	writel(readl(&chip->regs->epctr) & ~D_SYS_EPC_RST, &chip->regs->epctr);
-	writel(readl(&chip->regs->epctr) & ~D_SYS_PLL_RST, &chip->regs->epctr);
-
 	writel(readl(&chip->regs->sysmctr) | D_SYS_WBURST_TYPE, &chip->regs->sysmctr);
 
 	writel(D_USB_INT_SEL | D_USB_SOF_RCV | D_USB_SOF_CLK_MODE, &chip->regs->control);
@@ -1028,9 +1028,8 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	/* remove the pullup, apparently putting the controller
 	 * in reset doesn't do it! */
 	pullup(chip, 0);
-	/* get back into reset */
-	writel(readl(&chip->regs->epctr) | D_SYS_EPC_RST | D_SYS_PLL_RST,
-			&chip->regs->epctr);
+	/* get back into reset, but don't touch the USB PLL reset */
+	writel(readl(&chip->regs->epctr) | D_SYS_EPC_RST, &chip->regs->epctr);
 
 	return 0;
 }

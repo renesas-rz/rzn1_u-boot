@@ -64,14 +64,10 @@
 #define DDR_DIFF_CS_DELAY_REG		(66 * 4)	/* DENALI_CTL_66 */
 #define DDR_SAME_CS_DELAY_REG		(67 * 4)	/* DENALI_CTL_67 */
 #define DDR_RW_PRIORITY_REGS		(87 * 4 + 2)	/* DENALI_CTL_87 */
-#define DDR_AXI_ALIGN_STRB_DISABLE_REG	(90 * 4 + 2)	/* DENALI_CTL_90 */
+#define DDR_RW_FIFO_TYPE_REGS		(88 * 4)	/* DENALI_CTL_88 */
 #define DDR_AXI_PORT_PROT_ENABLE_REG	(90 * 4 + 3)	/* DENALI_CTL_90 */
 #define DDR_ADDR_RANGE_REGS		(91 * 4)	/* DENALI_CTL_91 */
 #define DDR_RANGE_PROT_REGS		(218 * 4 + 2)	/* DENALI_CTL_218 */
-#define  RANGE_PROT_BITS_PRIV_SECURE	0
-#define  RANGE_PROT_BITS_SECURE		1
-#define  RANGE_PROT_BITS_PRIV		2
-#define  RANGE_PROT_BITS_FULL		3
 #define DDR_ARB_CMD_Q_THRESHOLD_REG	(346 * 4 + 2)	/* DENALI_CTL_346 */
 #define DDR_AXI_PORT_BANDWIDTH_REG	(346 * 4 + 3)	/* DENALI_CTL_346 */
 
@@ -179,7 +175,7 @@ void cdns_ddr_set_diff_cs_delays(void *base, u8 r2r, u8 r2w, u8 w2r, u8 w2w)
 }
 
 void cdns_ddr_set_port_rw_priority(void *base, int port,
-			  u8 read_pri, u8 write_pri, u8 fifo_type)
+			  u8 read_pri, u8 write_pri)
 {
 	u8 *reg8 = (u8 *)base + DDR_RW_PRIORITY_REGS;
 
@@ -189,13 +185,12 @@ void cdns_ddr_set_port_rw_priority(void *base, int port,
 
 	ddrc_writeb(read_pri, reg8++);
 	ddrc_writeb(write_pri, reg8++);
-	ddrc_writeb(fifo_type, reg8++);
 }
 
 /* The DDR Controller has 16 entries. Each entry can specify an allowed address
  * range (with 16KB resolution) for one of the 4 AXI slave ports.
  */
-void cdns_ddr_enable_port_addr_range_x(void *base, int port, int entry,
+void cdns_ddr_enable_port_addr_range(void *base, int port, int entry,
 			      u32 addr_start, u32 size)
 {
 	u32 addr_end;
@@ -225,8 +220,18 @@ void cdns_ddr_enable_port_addr_range_x(void *base, int port, int entry,
 	ddrc_writel(tmp, reg32);
 }
 
-void cdns_ddr_enable_port_prot_x(void *base, int port, int entry,
-	u8 range_protection_bits,
+void cdns_ddr_enable_addr_range(void *base, int entry,
+			      u32 addr_start, u32 size)
+{
+	int axi;
+
+	for (axi = 0; axi < DDR_NR_AXI_PORTS; axi++)
+		cdns_ddr_enable_port_addr_range(base, axi, entry,
+					 addr_start, size);
+}
+
+void cdns_ddr_enable_port_prot(void *base, int port, int entry,
+	enum cdns_ddr_range_prot range_protection_bits,
 	u16 range_RID_check_bits,
 	u16 range_WID_check_bits,
 	u8 range_RID_check_bits_ID_lookup,
@@ -254,6 +259,24 @@ void cdns_ddr_enable_port_prot_x(void *base, int port, int entry,
 	ddrc_writew(range_WID_check_bits, reg8 + 4);
 	ddrc_writeb(range_RID_check_bits_ID_lookup, reg8 + 6);
 	ddrc_writeb(range_WID_check_bits_ID_lookup, reg8 + 7);
+}
+
+void cdns_ddr_enable_prot(void *base, int entry,
+	enum cdns_ddr_range_prot range_protection_bits,
+	u16 range_RID_check_bits,
+	u16 range_WID_check_bits,
+	u8 range_RID_check_bits_ID_lookup,
+	u8 range_WID_check_bits_ID_lookup)
+{
+	int axi;
+
+	for (axi = 0; axi < DDR_NR_AXI_PORTS; axi++)
+		cdns_ddr_enable_port_prot(base, axi, entry,
+					range_protection_bits,
+					range_RID_check_bits,
+					range_WID_check_bits,
+					range_RID_check_bits_ID_lookup,
+					range_WID_check_bits_ID_lookup);
 }
 
 void cdns_ddr_set_port_bandwidth(void *base, int port,
@@ -297,9 +320,6 @@ void cdns_ddr_ctrl_init(void *ddr_ctrl_basex, int async,
 	/* ECC: Disable corruption for read/modify/write operations */
 	ddrc_writeb(1, base8 + DDR_ECC_DISABLE_W_UC_ERR_REG);
 
-	/* ECC: AXI aligned strobe disable => enable */
-	ddrc_writeb(0, base8 + DDR_AXI_ALIGN_STRB_DISABLE_REG);
-
 	/* Set 8/16-bit data width using reduc bit (enable half datapath)*/
 #if defined(CONFIG_CADENCE_DDR_CTRL_8BIT_WIDTH)
 	pr_debug("%s using 8-bit data\n", __func__);
@@ -309,44 +329,35 @@ void cdns_ddr_ctrl_init(void *ddr_ctrl_basex, int async,
 #endif
 
 	/* Threshold for command queue */
-	ddrc_writeb(0x03, base8 + DDR_ARB_CMD_Q_THRESHOLD_REG);
+	ddrc_writeb(4, base8 + DDR_ARB_CMD_Q_THRESHOLD_REG);
 
 	/* AXI port protection => enable */
 	ddrc_writeb(0x01, base8 + DDR_AXI_PORT_PROT_ENABLE_REG);
 
-	/*
-	 * We enable all AXI slave ports with the same settings that simply
-	 * ensures all accesses to ports are in the valid address range.
-	 */
+	/* Set port interface type, default port priority and bandwidths */
 	for (axi = 0; axi < DDR_NR_AXI_PORTS; axi++) {
-		/* R/W priorities */
+		/* port interface type: synchronous or asynchronous AXI clock */
+		u8 *fifo_reg = base8 + DDR_RW_FIFO_TYPE_REGS + (axi * 3);
+
 		if (async)
-			cdns_ddr_set_port_rw_priority(ddr_ctrl_base, axi, 2, 2, 0);
+			ddrc_writeb(0, fifo_reg);
 		else
-			cdns_ddr_set_port_rw_priority(ddr_ctrl_base, axi, 2, 2, 3);
+			ddrc_writeb(3, fifo_reg);
 
-		/* DDR address range */
-		cdns_ddr_enable_port_addr_range_x(ddr_ctrl_base, axi, 0,
-					 ddr_start_addr, ddr_size);
-
-		/*
-		 * The hardware requires that the address ranges must not
-		 * overlap in order to trigger a valid address. So, we set all
-		 * other address range entries to be above the DDR, length 0.
-		 */
-		for (entry = 1; entry < DDR_NR_ENTRIES; entry++) {
-			cdns_ddr_enable_port_addr_range_x(ddr_ctrl_base, axi,
-					entry, ddr_start_addr + ddr_size, 0);
-		}
-
-		/* Access rights, see manual for details */
-		cdns_ddr_enable_port_prot_x(ddr_ctrl_base, axi, 0,
-				   RANGE_PROT_BITS_FULL,
-				   0xffff, 0xffff, 0x0f, 0x0f);
+		/* R/W priorities */
+		cdns_ddr_set_port_rw_priority(ddr_ctrl_base, axi, 2, 2);
 
 		/* AXI bandwidth */
 		cdns_ddr_set_port_bandwidth(ddr_ctrl_base, axi, 50, 1);
 	}
+
+	/*
+	 * The hardware requires that the valid address ranges must not overlap.
+	 * So, we initialise all address ranges to be above the DDR, length 0.
+	 */
+	for (entry = 0; entry < DDR_NR_ENTRIES; entry++)
+		cdns_ddr_enable_addr_range(ddr_ctrl_base,
+				entry, ddr_start_addr + ddr_size, 0);
 
 	for (i = 350; i <= 374; i++)
 		ddrc_writel(*(reg350 - 350 + i), ddr_ctrl_base + i);
@@ -357,6 +368,16 @@ void cdns_ddr_ctrl_init(void *ddr_ctrl_basex, int async,
 	 * manual's description of the 'int_status' parameter.
 	 */
 	ddrc_writel(0, base8 + DDR_INTERRUPT_MASK);
+
+	/*
+	 * Default settings to enable full access to the entire DDR.
+	 * Users can set different ranges and access rights by calling these
+	 * functions before calling cdns_ddr_ctrl_start().
+	 */
+	cdns_ddr_enable_addr_range(ddr_ctrl_base, 0,
+				 ddr_start_addr, ddr_size);
+	cdns_ddr_enable_prot(ddr_ctrl_base, 0, CDNS_DDR_RANGE_PROT_BITS_FULL,
+			   0xffff, 0xffff, 0x0f, 0x0f);
 }
 
 void cdns_ddr_ctrl_start(void *ddr_ctrl_basex)

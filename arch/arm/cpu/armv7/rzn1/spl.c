@@ -15,17 +15,14 @@
 u32 spl_boot_device(void)
 {
 	u32 opmode = (sysctrl_readl(RZN1_SYSCTRL_REG_OPMODE) >> 2) & 3;
+
 	switch (opmode) {
-#if defined(CONFIG_SPL_SPI_LOAD)
 	case 0:
 		return BOOT_DEVICE_SPI;
-#endif
-#if defined(CONFIG_SPL_NAND_LOAD)
 	case 1:
 		return BOOT_DEVICE_NAND;
-#endif
 	}
-	/* fallback to hard coded */
+	/* If booting from USB, fallback to hard coded */
 #if defined(CONFIG_SPL_SPI_LOAD)
 	return BOOT_DEVICE_SPI;
 #else

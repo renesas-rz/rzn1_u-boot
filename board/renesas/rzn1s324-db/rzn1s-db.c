@@ -19,8 +19,8 @@
 #include <asm/gpio.h>
 #include <dm.h>
 #include <fpga.h>
+#include <i2c.h>
 #include <lattice.h>
-#include <led.h>
 #include <linux/sizes.h>
 #include <malloc.h>
 #include <sdhci.h>
@@ -44,8 +44,42 @@ int board_early_init_f(void)
 /* Called early during device initialisation */
 void rzn1_setup_pinmux(void)
 {
-	/* Set all pin mux and drive stength to defaults for this board */
-	rzn1_board_pinmux(-1);
+	/* Set pin mux and drive stength for pins used by U-Boot */
+	rzn1_board_pinmux(RZN1_P_UART0);
+
+#if defined(RZN1_ENABLE_QSPI)
+	rzn1_board_pinmux(RZN1_P_QSPI0);
+	rzn1_board_pinmux(RZN1_P_QSPI1);
+#endif
+
+#if defined(RZN1_ENABLE_GPIO)
+	rzn1_board_pinmux(RZN1_P_GPIO1);
+	rzn1_board_pinmux(RZN1_P_GPIO2);
+#endif
+
+#if defined(RZN1_ENABLE_I2C)
+	rzn1_board_pinmux(RZN1_P_I2C1);
+#endif
+
+#if defined(RZN1_ENABLE_ETHERNET) && !defined(CONFIG_SPL_BUILD)
+	rzn1_board_pinmux(RZN1_P_REFCLK);
+	rzn1_board_pinmux(RZN1_P_ETH0);
+	rzn1_board_pinmux(RZN1_P_ETH1);
+	rzn1_board_pinmux(RZN1_P_ETH2);
+	rzn1_board_pinmux(RZN1_P_ETH3);
+	rzn1_board_pinmux(RZN1_P_ETH4);
+	rzn1_board_pinmux(RZN1_P_SWITCH);
+	rzn1_board_pinmux(RZN1_P_MDIO0);
+	rzn1_board_pinmux(RZN1_P_MDIO1);
+#endif
+
+#if defined(RZN1_ENABLE_SDHC) && !defined(CONFIG_SPL_BUILD)
+	rzn1_board_pinmux(RZN1_P_SDIO0);
+#endif
+
+#if defined(RZN1_ENABLE_USBH) && !defined(CONFIG_SPL_BUILD)
+	rzn1_board_pinmux(RZN1_P_USB);
+#endif
 
 	/*
 	 * This is special 'virtual' pins for the MDIO multiplexing.
@@ -55,44 +89,18 @@ void rzn1_setup_pinmux(void)
 	rzn1_pinmux_set(RZN1_MUX_MDIO(RZN1_MDIO_BUS1, MDIO_MUX_MAC1));
 }
 
-#if defined(RZN1_ENABLE_USBF) && !defined(CONFIG_SPL_BUILD)
+#if (defined(RZN1_ENABLE_USBF) || defined(RZN1_ENABLE_USBH)) && !defined(CONFIG_SPL_BUILD)
 /* Configure board specific clocks for the USB blocks */
 int board_usb_init(int index, enum usb_init_type init)
 {
-	/* Configure device clocks, etc */
 	return rzn1_usb_init(index, init);
 }
-#endif
 
-static int set_led(const char *name, int val)
+int board_usb_cleanup(int index, enum usb_init_type init)
 {
-	struct udevice *dev;
-	int ret;
-
-	ret = led_get_by_label(name, &dev);
-	if (ret)
-		return ret;
-
-	return led_set_on(dev, val);
+	return rzn1_usb_cleanup(index, init);
 }
-
-int rzn1_ctrl(void)
-{
-#if defined(RZN1_ENABLE_I2C)
-	/*
-	 * Switch I2C master for the EEPROM from the FTDI device to the RZ/N1.
-	 * The order is important as we want to avoid two masters connected at
-	 * the same time.
-	 * NOTE: ctrl0 is marked as ACTIVE_LOW in the dts
-	 */
-	/* Pretend the ctrl pins are leds. It works... */
-	set_led("ctrl1", 0);
-	set_led("ctrl2", 0);
-	set_led("ctrl0", 0);
 #endif
-
-	return 0;
-}
 
 #if defined(CONFIG_FPGA) && !defined(CONFIG_SPL_BUILD)
 
@@ -190,6 +198,7 @@ int board_init(void)
 #endif
 
 #if defined(RZN1_ENABLE_I2C) && !defined(CONFIG_SPL_BUILD)
+	rzn1_clk_set_gate(RZN1_CLK_I2C1_ID, 1);
 	rzn1_clk_set_gate(RZN1_HCLK_I2C1_ID, 1);
 #endif
 
@@ -204,10 +213,6 @@ int board_init(void)
 	rzn1_clk_set_gate(RZN1_HCLK_GPIO0_ID, 1);
 	rzn1_clk_set_gate(RZN1_HCLK_GPIO1_ID, 1);
 	rzn1_clk_set_gate(RZN1_HCLK_GPIO2_ID, 1);
-#endif
-
-#if defined(RZN1_ENABLE_USBF) && !defined(CONFIG_SPL_BUILD)
-	board_usb_init(0, USB_INIT_DEVICE);
 #endif
 
 #if defined(CONFIG_ARMV7_NONSEC) && defined(CONFIG_ARMV7_NONSEC_AT_BOOT)
@@ -225,12 +230,26 @@ int board_init(void)
 int board_late_init(void)
 {
 #if defined(RZN1_ENABLE_I2C) && !defined(CONFIG_SPL_BUILD)
+#define CPLD_I2C_ADDR 0x68
+	struct udevice *dev;
+	int ret;
+	u8 sw5 = 0;
+
 	/*
 	 * Do any I2C here, not board_init(). When board_init() runs, U-Boot has
-	 * not setup the UART properly so any I2C error that results in an error
-	 * message being printed out will result in a data abort.
+	 * not setup the UART properly so any I2C error that tries to print out
+	 * a message will cause a data abort.
 	 */
-	rzn1_ctrl();
+
+	/* Enable I2C EEPROM by setting 3 outputs of the PCA9698 port exp */
+	gpio_set_hogs();
+
+	/* Are we using 2xUSBH or 1xUSBF+1xUSBH ? */
+	ret = i2c_get_chip_for_busnum(1, CPLD_I2C_ADDR >> 1, 1, &dev);
+	if (!ret)
+		ret = dm_i2c_read(dev, 2, &sw5, 1);
+	if (!ret)
+		rzn1_uses_usb_func(!(sw5 & BIT(4)));
 #endif
 
 	return 0;
@@ -290,6 +309,9 @@ static int rzn1_board_eth_init(void)
 
 	rzn1_rin_init();
 
+	/* MII reference clock needed */
+	rzn1_clk_set_gate(RZN1_CLK_MII_REF_ID, 1);
+
 	/* Setup RGMII/RMII Converters */
 	rzn1_rgmii_rmii_conv_setup(0, PHY_INTERFACE_MODE_RGMII_ID, 0);
 	rzn1_rgmii_rmii_conv_setup(1, PHY_INTERFACE_MODE_RGMII_ID, 0);
@@ -321,6 +343,7 @@ int board_eth_init(bd_t *bis)
 {
 	int ret;
 	u32 if_type;
+	u32 phy_addr;
 
 	ret = rzn1_board_eth_init();
 	if (ret)
@@ -332,7 +355,8 @@ int board_eth_init(bd_t *bis)
 		ret++;
 
 	/* Work out which PHY interface we are using based in the PHY address */
-	if ((CONFIG_PHY1_ADDR == 4) || (CONFIG_PHY1_ADDR == 5))
+	phy_addr = getenv_ulong("switch_phy_addr", 10, CONFIG_PHY1_ADDR);
+	if ((phy_addr == 4) || (phy_addr == 5))
 		if_type = PHY_INTERFACE_MODE_MII;
 	else
 		if_type = PHY_INTERFACE_MODE_RGMII_ID;

@@ -40,8 +40,30 @@ int board_early_init_f(void)
 /* Called early during device initialisation */
 void rzn1_setup_pinmux(void)
 {
-	/* Set all pin mux and drive stength to defaults for this board */
-	rzn1_board_pinmux(-1);
+	/* Set pin mux and drive stength for pins used by U-Boot */
+	rzn1_board_pinmux(RZN1_P_UART0);
+
+#if defined(RZN1_ENABLE_QSPI)
+	rzn1_board_pinmux(RZN1_P_QSPI0);
+#endif
+
+#if defined(RZN1_ENABLE_GPIO)
+	rzn1_board_pinmux(RZN1_P_GPIO0);
+	rzn1_board_pinmux(RZN1_P_GPIO1);
+#endif
+
+#if defined(RZN1_ENABLE_I2C)
+	rzn1_board_pinmux(RZN1_P_I2C1);
+#endif
+
+#if defined(RZN1_ENABLE_ETHERNET) && !defined(CONFIG_SPL_BUILD)
+	rzn1_board_pinmux(RZN1_P_REFCLK);
+	rzn1_board_pinmux(RZN1_P_ETH3);
+	rzn1_board_pinmux(RZN1_P_ETH4);
+	rzn1_board_pinmux(RZN1_P_SWITCH);
+	rzn1_board_pinmux(RZN1_P_MDIO0);
+	rzn1_board_pinmux(RZN1_P_MDIO1);
+#endif
 
 	/*
 	 * This is special 'virtual' pins for the MDIO multiplexing.
@@ -59,12 +81,16 @@ void rzn1_setup_eth0_pinmux(void)
 		rzn1_pinmux_set(RZN1_MUX_PNONE_6MA(i, CLK_ETH_MII_RGMII_RMII));
 }
 
-#if defined(RZN1_ENABLE_USBF) && !defined(CONFIG_SPL_BUILD)
+#if (defined(RZN1_ENABLE_USBF) || defined(RZN1_ENABLE_USBH)) && !defined(CONFIG_SPL_BUILD)
 /* Configure board specific clocks for the USB blocks */
 int board_usb_init(int index, enum usb_init_type init)
 {
-	/* Configure device clocks, etc */
 	return rzn1_usb_init(index, init);
+}
+
+int board_usb_cleanup(int index, enum usb_init_type init)
+{
+	return rzn1_usb_cleanup(index, init);
 }
 #endif
 
@@ -77,6 +103,7 @@ int board_init(void)
 #endif
 
 #if defined(RZN1_ENABLE_I2C) && !defined(CONFIG_SPL_BUILD)
+	rzn1_clk_set_gate(RZN1_CLK_I2C1_ID, 1);
 	rzn1_clk_set_gate(RZN1_HCLK_I2C1_ID, 1);
 #endif
 
@@ -92,10 +119,6 @@ int board_init(void)
 	rzn1_clk_set_gate(RZN1_CLK_MII_REF_ID, 1);
 #endif
 
-#if defined(RZN1_ENABLE_USBF) && !defined(CONFIG_SPL_BUILD)
-	board_usb_init(0, USB_INIT_DEVICE);
-#endif
-
 	return 0;
 }
 
@@ -104,7 +127,7 @@ int board_init(void)
 #define I2C_IO_SW_LEDS		0x8
 #define I2C_IO_SW_SWITCHES	0x1
 
-static int read_sw5(void)
+static u8 read_sw5(void)
 {
 	struct udevice *dev;
 	int ret;
@@ -121,17 +144,6 @@ static int read_sw5(void)
 	}
 
 #if 0
-	/* Test LEDs */
-	buf = 0xaa;
-	dm_i2c_write(dev, I2C_IO_SW_LEDS, &buf, 1);
-	mdelay(1000);
-	buf = 0x55;
-	dm_i2c_write(dev, I2C_IO_SW_LEDS, &buf, 1);
-	mdelay(1000);
-	buf = 0xaa;
-	dm_i2c_write(dev, I2C_IO_SW_LEDS, &buf, 1);
-	mdelay(1000);
-
 	/* Test switches, read them and set the LEDs to the same value */
 	dm_i2c_read(dev, I2C_IO_SW_SWITCHES, &buf, 1);
 	dm_i2c_write(dev, I2C_IO_SW_LEDS, &buf, 1);
@@ -144,39 +156,34 @@ static int read_sw5(void)
 		return 0;
 	}
 
-	/* The CPLD reads inverted switch values */
-	return ~buf & 7;
-}
-
-static int is_eth0_enabled(void)
-{
-	/* eth0 is enabled if switch SW5:1 is OFF */
-	return ~read_sw5() & 1;
-}
-
-static int is_eeprom_enabled(void)
-{
-	/* Normal I2C access to the EEPROM is enabled if switch SW5:1 is OFF */
-	return ~read_sw5() & 2;
+	return buf & 0xf;
 }
 
 int board_late_init(void)
 {
 #if defined(RZN1_ENABLE_I2C) && !defined(CONFIG_SPL_BUILD)
+	u8 sw5 = read_sw5();
+
 	/*
 	 * Do any I2C here, not board_init(). When board_init() runs, U-Boot has
 	 * not setup the UART properly so any I2C error that results in an error
 	 * message being printed out will result in a data abort.
 	 */
-	if (is_eth0_enabled()) {
-		printf("Switches enable eth0\n");
+	if (sw5 & BIT(0))
 		rzn1_setup_eth0_pinmux();
-	} else {
-		printf("Switches enable PMOD\n");
-	}
+	else
+		printf("Note: SW5 enables PMOD, not eth0\n");
 
-	if (is_eeprom_enabled()) {
-		printf("Switches enable normal I2C access to the EEPROM\n");
+	if (!(sw5 & BIT(1)))
+		printf("Note: SW5 I2C access to the EEPROM is via EtherCAT\n");
+
+	/* Note that SW5:3 is not read by the CPLD at the moment so this does
+	 * not detect that the board is in USB Host mode */
+	if (sw5 & BIT(3)) {
+		printf("Note: SW5 enables USB Host\n");
+		rzn1_board_pinmux(RZN1_P_USB);
+	} else {
+		rzn1_uses_usb_func(true);
 	}
 #endif
 
@@ -237,6 +244,9 @@ static int rzn1_board_eth_init(void)
 
 	rzn1_rin_init();
 
+	/* MII reference clock needed */
+	rzn1_clk_set_gate(RZN1_CLK_MII_REF_ID, 1);
+
 	/* Setup RGMII/RMII Converters */
 	rzn1_rgmii_rmii_conv_setup(0, PHY_INTERFACE_MODE_RGMII_ID, 0);
 	rzn1_rgmii_rmii_conv_setup(3, PHY_INTERFACE_MODE_MII, 1);
@@ -268,7 +278,6 @@ static int rzn1_board_eth_init(void)
 int board_eth_init(bd_t *bis)
 {
 	int ret;
-	u32 if_type;
 
 	ret = rzn1_board_eth_init();
 	if (ret)
@@ -279,18 +288,13 @@ int board_eth_init(bd_t *bis)
 	if (designware_initialize(RZN1_GMAC0_BASE, PHY_INTERFACE_MODE_RGMII_ID) >= 0)
 		ret++;
 
-	/* Work out which PHY interface we are using based in the PHY address */
-	if ((CONFIG_PHY1_ADDR == 4) || (CONFIG_PHY1_ADDR == 5))
-		if_type = PHY_INTERFACE_MODE_MII;
-	else
-		if_type = PHY_INTERFACE_MODE_RGMII_ID;
-
 	/* Enable Ethernet GMAC1.
 	 * Uses a fixed 1Gbps link to the 5-port switch.
-	 * The interface specified here is the PHY side, not 5-port switch side.
+	 * The interface specified here is the PHY side. Both of the PHYs
+	 * connected to the Switch use MII.
 	 */
 	rzn1_clk_set_gate(RZN1_HCLK_GMAC1_ID, 1);
-	if (designware_initialize_fixed_link(RZN1_GMAC1_BASE, if_type, SPEED_1000) >= 0)
+	if (designware_initialize_fixed_link(RZN1_GMAC1_BASE, PHY_INTERFACE_MODE_MII, SPEED_1000) >= 0)
 		ret++;
 
 	return ret;

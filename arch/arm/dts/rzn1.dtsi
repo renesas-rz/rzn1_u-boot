@@ -79,9 +79,6 @@
 		 * Here we find the 'exceptions' - mostly grouping clocks
 		 * together to attach to drivers */
 
-		/* Needed for pinctrl access !*/
-		hclk_pinconfig { renesas,no-disable; };
-
 		clk_ddr_grp: clk_ddr_grp {
 			#clock-cells = <0>;
 			compatible = "renesas,rzn1-clock-group";
@@ -262,6 +259,7 @@
 			<GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(2) | IRQ_TYPE_LEVEL_LOW)>,
 			<GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(2) | IRQ_TYPE_LEVEL_LOW)>,
 			<GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(2) | IRQ_TYPE_LEVEL_LOW)>;
+		always-on;
 	};
 
 	gic: interrupt-controller@RZN1_GIC_BASE {
@@ -277,20 +275,9 @@
 				IRQ_TYPE_LEVEL_HIGH)>;
 	};
 
-	ipc: mailbox@RZN1_MAILBOX_BASE {
-	    compatible = "arm,pl320", "arm,primecell";
-	    reg = <RZN1_MAILBOX_BASE RZN1_MAILBOX_SIZE>;
-	    interrupts = <GIC_SPI RZN1_IRQ_IPCM_1 IRQ_TYPE_LEVEL_HIGH>;
-	    clocks = <&clk_fw>;
-	    clock-names = "apb_pclk";
-	};
-
-	gpioirq: gpioirq@RZN1_GPIO0_BASE {
+	gpioirq: gpioirq@RZN1_SYSTEM_CTRL_BASE {
 		compatible = "renesas,rzn1-gpioirq";
-		#address-cells = <1>;
-		#size-cells = <0>;
 		status = "disabled";
-
 		interrupts =
 			<GIC_SPI RZN1_IRQ_GPIO_0 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI RZN1_IRQ_GPIO_1 IRQ_TYPE_LEVEL_HIGH>,
@@ -300,14 +287,18 @@
 			<GIC_SPI RZN1_IRQ_GPIO_5 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI RZN1_IRQ_GPIO_6 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI RZN1_IRQ_GPIO_7 IRQ_TYPE_LEVEL_HIGH>;
-
-		reg = <RZN1_GPIO0_BASE RZN1_GPIO0_SIZE>,
-			<RZN1_GPIO1_BASE RZN1_GPIO1_SIZE>,
-			<RZN1_GPIO2_BASE RZN1_GPIO2_SIZE>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
+	};
 
-		/* gpioirq-3 = <&gpio1a 12 GPIO_ACTIVE_HIGH>; */
+	cm3: cm3@RZN1_SRAM_ID_BASE {
+		compatible = "renesas,rzn1-cm3";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+		reg = <RZN1_SRAM_ID_BASE RZN1_SRAM_ID_SIZE>;
+		/* Optional, load and run a CM3 firmware at boot time */
+		/* firmware-name = "cm3-freertos.bin"; */
 	};
 
 	bus {
@@ -317,12 +308,12 @@
 		ranges;
 		u-boot,dm-pre-reloc;
 
-		memory-controller@RZN1_DDR_BASE {
+		ddrctrl: memory-controller@RZN1_DDR_BASE {
 			compatible = "cadence,ddr-ctrl";
 			reg = <RZN1_DDR_BASE RZN1_DDR_SIZE>;
 			interrupts = <GIC_SPI RZN1_IRQ_DDRSUB IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clk_ddr_grp>;
-			status = "okay";
+			status = "disabled";
 		};
 		pinctrl: pinctrl@RZN1_PINCTRL_BASE {
 			compatible = "renesas,rzn1-pinctrl";
@@ -330,7 +321,16 @@
 				<RZN1_PINCTRL_L2_BASE RZN1_PINCTRL_L2_SIZE>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clocks = <&hclk_pinconfig>;
+			clock-names = "bus";
 			status = "okay";
+		};
+		ipc: mailbox@RZN1_MAILBOX_BASE {
+		    compatible = "arm,pl320", "arm,primecell";
+		    reg = <RZN1_MAILBOX_BASE RZN1_MAILBOX_SIZE>;
+		    interrupts = <GIC_SPI RZN1_IRQ_IPCM_1 IRQ_TYPE_LEVEL_HIGH>;
+		    clocks = <&clk_fw>;
+		    clock-names = "apb_pclk";
 		};
 		timer0: timer@RZN1_TIMER0_BASE {
 			compatible = "renesas,rzn1-timer";
@@ -344,7 +344,6 @@
 				     <GIC_SPI RZN1_IRQ_TIMER0_6 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI RZN1_IRQ_TIMER0_7 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hclk_timer0>;
-			renesas,use-prescaler;
 			status = "disabled";
 		};
 		timer1: timer@RZN1_TIMER1_BASE {
@@ -360,85 +359,100 @@
 				     <GIC_SPI RZN1_IRQ_TIMER1_6 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI RZN1_IRQ_TIMER1_7 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&hclk_timer1>;
-			renesas,use-prescaler;
 			status = "disabled";
 		};
 		uart0: serial@RZN1_UART0_BASE {
 			compatible = "snps,dw-apb-uart";
+			snps,rzn1-uart;
 			reg = <RZN1_UART0_BASE RZN1_UART0_SIZE>;
 			interrupts = <GIC_SPI RZN1_IRQ_UART0 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
+			cpr-value = <0x00010f32>;
 			clocks = <&gsclk_uart0 &hclk_uart0>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
 		uart1: serial@RZN1_UART1_BASE {
 			compatible = "snps,dw-apb-uart";
+			snps,rzn1-uart;
 			reg = <RZN1_UART1_BASE RZN1_UART1_SIZE>;
 			interrupts = <GIC_SPI RZN1_IRQ_UART1 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
+			cpr-value = <0x00010f32>;
 			clocks = <&gsclk_uart1 &hclk_uart1>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
 		uart2: serial@RZN1_UART2_BASE {
 			compatible = "snps,dw-apb-uart";
+			snps,rzn1-uart;
 			reg = <RZN1_UART2_BASE RZN1_UART2_SIZE>;
 			interrupts = <GIC_SPI RZN1_IRQ_UART2 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
+			cpr-value = <0x00010f32>;
 			clocks = <&gsclk_uart2 &hclk_uart2>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
 		uart3: serial@RZN1_UART3_BASE {
 			compatible = "snps,dw-apb-uart";
+			snps,rzn1-uart;
 			reg = <RZN1_UART3_BASE RZN1_UART3_SIZE>;
 			interrupts = <GIC_SPI RZN1_IRQ_UART3 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
+			cpr-value = <0x00012f32>;
 			clocks = <&gsclk_uart3 &hclk_uart3>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
 		uart4: serial@RZN1_UART4_BASE {
 			compatible = "snps,dw-apb-uart";
+			snps,rzn1-uart;
 			reg = <RZN1_UART4_BASE RZN1_UART4_SIZE>;
 			interrupts = <GIC_SPI RZN1_IRQ_UART4 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
+			cpr-value = <0x00012f32>;
 			clocks = <&gsclk_uart4 &hclk_uart4>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
 		uart5: serial@RZN1_UART5_BASE {
 			compatible = "snps,dw-apb-uart";
+			snps,rzn1-uart;
 			reg = <RZN1_UART5_BASE RZN1_UART5_SIZE>;
 			interrupts = <GIC_SPI RZN1_IRQ_UART5 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
+			cpr-value = <0x00012f32>;
 			clocks = <&gsclk_uart5 &hclk_uart5>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
 		uart6: serial@RZN1_UART6_BASE {
 			compatible = "snps,dw-apb-uart";
+			snps,rzn1-uart;
 			reg = <RZN1_UART6_BASE RZN1_UART6_SIZE>;
 			interrupts = <GIC_SPI RZN1_IRQ_UART6 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
+			cpr-value = <0x00012f32>;
 			clocks = <&gsclk_uart6 &hclk_uart6>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
 		uart7: serial@RZN1_UART7_BASE {
 			compatible = "snps,dw-apb-uart";
+			snps,rzn1-uart;
 			reg = <RZN1_UART7_BASE RZN1_UART7_SIZE>;
 			interrupts = <GIC_SPI RZN1_IRQ_UART7 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
+			cpr-value = <0x00012f32>;
 			clocks = <&gsclk_uart7 &hclk_uart7>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
@@ -726,6 +740,20 @@
 			reg = <RZN1_RESET_BASE RZN1_RESET_SIZE>;
 			clocks = <&hclk_pinconfig>;
 		};
+		wdt0: wdt0@RZN1_WATCHDOG0_BASE {
+			compatible = "renesas,rzn1-watchdog";
+			reg = <RZN1_WATCHDOG0_BASE RZN1_WATCHDOG0_SIZE>;
+			interrupts = <GIC_SPI RZN1_IRQ_WATCHDOG_RESETN_0 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clk_ref_sync_d8>;
+			status = "disabled";
+		};
+		wdt1: wdt1@RZN1_WATCHDOG1_BASE {
+			compatible = "renesas,rzn1-watchdog";
+			reg = <RZN1_WATCHDOG1_BASE RZN1_WATCHDOG1_SIZE>;
+			interrupts = <GIC_SPI RZN1_IRQ_WATCHDOG_RESETN_1 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clk_ref_sync_d8>;
+			status = "disabled";
+		};
 		wdtsafe0: wdtsafe0@RZN1_WATCHDOGSAFE0_BASE {
 			compatible = "renesas,rzn1-watchdogsafe";
 			reg = <RZN1_WATCHDOGSAFE0_BASE RZN1_WATCHDOGSAFE0_SIZE>;
@@ -760,10 +788,18 @@
 				snps,nr-gpios = <32>;
 				reg = <0>;
 
+				/*
+				 * There are 32 irqs going from this gpio block
+				 * to the gpio irq mux block, hence the large
+				 * list of interrupts.
+				 */
+				interrupt-parent = <&gpioirq>;
+				interrupts =   < 0  1  2  3  4  5  6  7
+						 8  9 10 11 12 13 14 15
+						16 17 18 19 20 21 22 23
+						24 25 26 27 28 29 30 31 >;
 				interrupt-controller;
 				#interrupt-cells = <2>;
-				interrupt-parent = <&gpioirq>;
-				interrupts = <8>;
 			};
 			gpio0b: gpio-controller@1 {
 				compatible = "snps,dw-apb-gpio-port";
@@ -792,10 +828,18 @@
 				snps,nr-gpios = <32>;
 				reg = <0>;
 
+				/*
+				 * There are 32 irqs going from this gpio block
+				 * to the gpio irq mux block, hence the large
+				 * list of interrupts.
+				 */
+				interrupt-parent = <&gpioirq>;
+				interrupts =  < 32 33 34 35 36 37 38 39
+						40 41 42 43 44 45 46 47
+						48 49 50 51 52 53 54 55
+						56 57 58 59 60 61 62 63 >;
 				interrupt-controller;
 				#interrupt-cells = <2>;
-				interrupt-parent = <&gpioirq>;
-				interrupts = <9>;
 			};
 			/* GPIO1b[0..1] corresponds to pins 31..32 */
 			/* GPIO1b[2..4] corresponds to pins 35..37 */
@@ -828,10 +872,18 @@
 				snps,nr-gpios = <32>;
 				reg = <0>;
 
+				/*
+				 * There are 32 irqs going from this gpio block
+				 * to the gpio irq mux block, hence the large
+				 * list of interrupts.
+				 */
+				interrupt-parent = <&gpioirq>;
+				interrupts =  < 64 65 66 67 68 69 70 71
+						72 73 74 75 76 77 78 79
+						80 81 82 83 84 85 86 87
+						88 89 90 91 92 93 94 95 >;
 				interrupt-controller;
 				#interrupt-cells = <2>;
-				interrupt-parent = <&gpioirq>;
-				interrupts = <10>;
 			};
 			/* GPIO2b[0..9] corresponds to pins 160..169 */
 			gpio2b: gpio-controller@1 {

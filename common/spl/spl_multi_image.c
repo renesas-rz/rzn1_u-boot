@@ -27,6 +27,7 @@
 #include <spl.h>
 #include <spi_flash.h>
 #include "crypto_api.h"
+#include "renesas/rzn1-clocks.h"
 #include "renesas/rzn1-memory-map.h"
 #include "renesas/rzn1-sysctrl.h"
 #include "renesas/rzn1-utils.h"
@@ -44,16 +45,19 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+/* The top part of Sys SRAM is used by crypto HW when verifying signatures */
+#define CRYPTO_SRAM_USED	(64 * 1024)
+
 #define sysctrl_readl(addr) \
 	readl(RZN1_SYSTEM_CTRL_BASE + addr)
 #define sysctrl_writel(val, addr) \
 	writel(val, RZN1_SYSTEM_CTRL_BASE + addr)
 
-u8 default_load_source;
-#if defined(CONFIG_SPL_SPI_LOAD)
+static u8 default_load_source;
+#if defined(RZN1_ENABLE_QSPI)
 struct spi_flash *flash;
 #endif
-#if defined(CONFIG_SPL_NAND_LOAD)
+#if defined(RZN1_ENABLE_NAND)
 /*
  * When reading data from a NAND Flash device, the minimum we can read is a
  * page. SPL will be able to load multiple images to arbitrary locations, so
@@ -84,7 +88,7 @@ static struct loaded_data_t loaded_core[PKGT_CORE_END][PKGT_KIND_END];
 static const uint8_t rzn1_rpkg_public_key_hash[] = { RZN1_SPL_RPKG_HASH };
 
 /* if NAND exists, we can use the static page they use to load pages */
-#if defined(CONFIG_SPL_NAND_LOAD)
+#if defined(RZN1_ENABLE_NAND)
 /* Re-use intermediate storage for NAND page */
 extern u32 nand_page[];
 static struct spkg_file *spkg = (struct spkg_file *)nand_page;
@@ -93,8 +97,44 @@ static struct spkg_file spkg_header_struct;
 static struct spkg_file *spkg = &spkg_header_struct;
 #endif
 
-static int addr_ok(
-	uint32_t addr, uint32_t low, uint32_t limit)
+enum pkg_entry_errors {
+	SUCCESS = 0,
+	CRYPTO_INIT_FAILED = -1,
+	SIGNATURE_VERIFY_FAILED = -2,
+	UNSUPPORTED_BLP_HEADER = -3,
+	INVALID_ADDR_SIZE = -4,
+	MEDIA_FAILED = -5,
+	BAD_HEADER_CRC = -6,
+	CANT_LOAD_SECURE_UIMAGE = -7,
+	BAD_CPU_INDEX = -8,
+	BAD_PACKAGE_KIND = -9,
+	BAD_PACKAGE_TYPE = -10,
+	BAD_PACKAGE_SRC = -11,
+	MISSING_SPKG_HDR = -12,
+};
+
+static const char * pkg_entry_error_str[] = {
+	"Success",
+	"Failed to initialise crypto",
+	"Signature verification failed",
+	"Unsupported BLp header",
+	"Invalid address and/or size",
+	"QSPI or NAND read failed",
+	"Bad CRC in header",
+	"Secure mode cannot load uImage",
+	"Unsupported cpu index",
+	"Unsupported package kind",
+	"Unsupported package type",
+	"Unsupported package source",
+	"SPKG header not found",
+};
+
+static const char *get_err_str(int err)
+{
+	return pkg_entry_error_str[-err];
+}
+
+static int addr_ok(u32 addr, u32 low, u32 limit)
 {
 	if ((addr < low) || (addr >= (low + limit)))
 		return 0;
@@ -103,8 +143,7 @@ static int addr_ok(
 }
 
 /* Check that the address range is _completely_ inside another range */
-static int range_ok(
-	uint32_t addr, uint32_t size, uint32_t low, uint32_t limit)
+static int range_ok(u32 addr, u32 size, u32 low, u32 limit)
 {
 	if (addr_ok(addr, low, limit) && addr_ok(addr + size - 1, low, limit))
 		return 1;
@@ -113,15 +152,13 @@ static int range_ok(
 }
 
 /* Check that the address range is _partially_ inside another range */
-static int range_conflicts(
-	uint32_t addr, uint32_t size, uint32_t low, uint32_t limit)
+static int range_conflicts(u32 addr, u32 size, u32 low, u32 limit)
 {
 	if (addr_ok(addr, low, limit) || addr_ok(addr + size - 1, low, limit))
 		return 1;
 
 	return 0;
 }
-
 
 static __noreturn void stop(void)
 {
@@ -131,14 +168,14 @@ static __noreturn void stop(void)
 		;
 }
 
-static const char * const pkg_type[] = { "uImage", "RPKG", "SPKG" };
+static const char * const pkg_type[] = { "uImage", "RPKG", "SPKG", "raw"};
 static const char * const pkg_core[] = { "CA7 #0", "CA7 #1", "CM3" };
 static const char * const pkg_kind[] = { "code", "dtb", "data" };
 static const char * const pkg_src[] = { "(same)", "QSPI", "NAND" };
 
-static void pkgt_msg(struct pkg_entry *entry, char *msg, int details)
+static void pkgt_msg(const struct pkg_entry * const entry, const char *msg, int details)
 {
-	printf("U-Boot SPL: Error with PKG Table entry (%s).\n", msg);
+	printf("SPL: Error with PKG Table entry (%s).\n", msg);
 	printf("    PKG media offset 0x%08x ", entry->offset);
 
 	printf("%s %s %s in %s\n",
@@ -148,6 +185,7 @@ static void pkgt_msg(struct pkg_entry *entry, char *msg, int details)
 		printf("    PKG load address 0x%08x, size 0x%08x\n",
 		       spl_image.load_addr, spl_image.size);
 }
+
 
 /* Depending on OTP values in the device, the Cortex M3 will either start
  * running code from QSPI or from the start of SRAM.
@@ -160,18 +198,17 @@ static int cm3_runs_from_qspi(void)
 	return 0;
 }
 
-/* Align on the next megabyte boundary */
-#define MAP_ALIGNEMNT	(16*1024*1024)
+/* Align on the next 16MB boundary */
+#define MAP_ALIGNMENT	(16 * 1024 * 1024)
 
-/* if the code for a core is loaded, add size (and alignemnt, and a bit extra)
+/* if the code for a core is loaded, add size (and alignment, and a bit extra)
  * to it's size, for relocating DTB, initramfs etc */
-static uint32_t reserve_core_range(int core, uint32_t size)
+static u32 reserve_core_range(int core, u32 size)
 {
-	struct loaded_data_t *code =
-		&loaded_core[core][PKGT_KIND_CODE];
+	struct loaded_data_t *code = &loaded_core[core][PKGT_KIND_CODE];
 	/* round load address to 4K */
-	uint32_t dest = (code->load_addr + code->size + code->mapped + (MAP_ALIGNEMNT-1)) &
-				~(MAP_ALIGNEMNT-1);
+	u32 dest = (code->load_addr + code->size + code->mapped + (MAP_ALIGNMENT-1)) &
+				~(MAP_ALIGNMENT-1);
 
 	/* add at least 4KB, and round */
 	size = (size + 8192) & ~4095;
@@ -187,90 +224,93 @@ static uint32_t reserve_core_range(int core, uint32_t size)
 }
 
 /* Load data from the flash specified by the table entry */
-static int source_load(
-	struct pkg_entry *entry,
-	uint32_t offset,
-	size_t size,
-	void *dst)
+static int source_load(const struct pkg_entry * const entry,
+	u32 offset, size_t size, void *dst)
 {
-	int ret = -1;
+	int ret = SUCCESS;
 
 	switch (PKG_SRC(entry)) {
-#if defined(CONFIG_SPL_SPI_LOAD)
+#if defined(RZN1_ENABLE_QSPI)
 	case PKGT_SRC_QSPI:
 		if (!flash)
 			flash = spl_spi_probe();
 		ret = spi_flash_read(flash, offset, size, dst);
 		break;
 #endif
-#if defined(CONFIG_SPL_NAND_LOAD)
+#if defined(RZN1_ENABLE_NAND)
 	case PKGT_SRC_NAND:
 		ret = nand_spl_load_image(offset, size, dst);
 		break;
 #endif
 	}
-	return ret;
+	if (ret != 0)
+		return MEDIA_FAILED;
+
+	return SUCCESS;
 }
 
 /* Use the BootROM code to check the signature */
-static int rpkg_verify_sig(
-	BLpHeader_t *pBLp_Header, void *pPayload, uint32_t exec_offset)
+static int verify_signature(
+	const BLpHeader_t * const pBLp_Header, const void * const pPayload,
+	u32 exec_offset)
 {
 	boot_rom_api_t *pAPI = (boot_rom_api_t *)CRYPTO_API_ADDRESS;
 	SB_StorageArea_t StorageArea;
-	uint32_t ret;
+	u32 ret;
 
 	debug("%s: pBLp_Header %p, pPayload %p, exec_offset %d\n", __func__,
 	      pBLp_Header, pPayload, exec_offset);
 
-	ret = pAPI->crypto_init();
-	if (ret != 0) {
-		printf("%s: failed to initialise!\n", __func__);
-		return -1;
-	}
-	debug("%s: Call to crypto_init completed!\n", __func__);
+	rzn1_clk_set_gate(RZN1_HCLK_CRYPTO_EIP93_ID, 1);
+	rzn1_clk_set_gate(RZN1_HCLK_CRYPTO_EIP150_ID, 1);
+
+	if (pAPI->crypto_init() != 0)
+		return CRYPTO_INIT_FAILED;
 
 	ret = pAPI->ecdsa_verify(pBLp_Header,
 			pPayload,
 			exec_offset,
 			&StorageArea,
 			(void *)&rzn1_rpkg_public_key_hash);
-	if (ret != ECDSA_VERIFY_STATUS_VERIFIED) {
-		printf("%s: failed to verify image (%d)!\n", __func__, ret);
-		return -2;
-	}
-	debug("%s: verified!\n", __func__);
+	if (ret != ECDSA_VERIFY_STATUS_VERIFIED)
+		return SIGNATURE_VERIFY_FAILED;
 
-	return 0;
+	return SUCCESS;
 }
 
 /* Returns ZERO if range is valid */
-static int validate_load_range(struct loaded_data_t *info)
+static int validate_load_range(const struct loaded_data_t * const info)
 {
+	struct pkg_entry *entry = info->part;
 	int i,j;
 	int valid_addr = 0;
+
 	/*
 	 * Perform some basic checks on the address range.
 	 * This is not exhaustive as the boot allows Cortex M3 code to be loaded
 	 * and started before loading other images. The Cortex M3 code could do
 	 * pretty much anything...
 	 */
+	debug("%s: load addr 0x%x exec addr 0x%x size %d\n", __func__,
+	      info->load_addr, info->entry_point-info->load_addr, info->size);
+
+	/* Are CM3 images at the correct place and can CM3 run them? */
+	if (PKG_CORE(entry) == PKGT_CORE_CM3 &&
+	    (info->load_addr != RZN1_SRAM_ID_BASE ||
+	     info->entry_point != RZN1_SRAM_ID_BASE ||
+	     cm3_runs_from_qspi()))
+		return INVALID_ADDR_SIZE;
 
 	/* Check the image destination is a valid memory region */
 #if defined(CONFIG_SYS_SDRAM_BASE)
+	/* This is DDR on RZ/N1D, but SRAM on RZ/N1S and RZ/N1L */
 	valid_addr |= range_ok(info->load_addr, info->size,
 				CONFIG_SYS_SDRAM_BASE, CONFIG_SYS_SDRAM_SIZE);
 #endif
 	valid_addr |= range_ok(info->load_addr, info->size,
 				RZN1_SRAM_ID_BASE, RZN1_SRAM_ID_SIZE);
 	valid_addr |= range_ok(info->load_addr, info->size,
-				RZN1_SRAM_SYS_BASE, RZN1_SRAM_SYS_SIZE);
-
-	/* RZ/N1S and RZ/N1L have an additional SRAM */
-	if (!is_rzn1d()) {
-		valid_addr |= range_ok(info->load_addr, info->size,
-				RZN1_SRAM4MB_BASE, RZN1_SRAM4MB_SIZE);
-	}
+				RZN1_SRAM_SYS_BASE, RZN1_SRAM_SYS_SIZE - CRYPTO_SRAM_USED);
 
 	/* Check the image destination isn't overwriting us */
 	valid_addr &= !range_conflicts(info->load_addr, info->size,
@@ -295,33 +335,26 @@ static int validate_load_range(struct loaded_data_t *info)
 						loaded_core[i][j].load_addr,
 						loaded_core[i][j].size);
 			}
-	return valid_addr ? 0 : -1;
+	return valid_addr ? SUCCESS : INVALID_ADDR_SIZE;
 }
 
 static int parse_rpkg_header(BLpHeader_t *hdr, struct loaded_data_t *info)
 {
-	uint32_t tmp;
+	u32 tmp;
 
 	/* Check the ImageAttributes are what we expect */
 	tmp = __be32_to_cpu(hdr->Custom_attribute_Load_Address_type_ID);
-	if (tmp != 0x80000001) {
-		printf("%s: Bad BLP Load Address ID = 0x%x\n", __func__,
-		       hdr->Custom_attribute_Load_Address_type_ID);
-		return -1;
-	}
-	tmp = __be32_to_cpu(hdr->Custom_attribute_Execution_Offset_type_ID);
-	if (tmp != 0x80000002) {
-		printf("%s: Bad BLP Execution Offset ID = 0x%x\n", __func__,
-		       hdr->Custom_attribute_Execution_Offset_type_ID);
-		return -1;
-	}
-
+	if (tmp != 0x80000001)
+		return UNSUPPORTED_BLP_HEADER;
 	info->load_addr = __be32_to_cpu(hdr->Custom_attribute_Load_Address_value_Big_Endian);
-	info->entry_point = info->load_addr +
-				__be32_to_cpu(hdr->Custom_attribute_Execution_Offset_value_Big_Endian);
+	info->entry_point = info->load_addr;
+
+	/* Assume the execution offset is 0 if not present */
+	tmp = __be32_to_cpu(hdr->Custom_attribute_Execution_Offset_type_ID);
+	if (tmp == 0x80000002)
+		info->entry_point += __be32_to_cpu(hdr->Custom_attribute_Execution_Offset_value_Big_Endian);
+
 	info->size = __be32_to_cpu(hdr->ImageLen);
-	debug("%s: load addr 0x%x exec addr 0x%x size %d\n", __func__,
-	      info->load_addr, info->entry_point-info->load_addr, info->size);
 
 	return validate_load_range(info);
 }
@@ -349,27 +382,19 @@ static struct spkg_hdr *locate_valid_spkg_header(struct spkg_hdr *h)
 static int parse_spkg_header(struct spkg_hdr *h, struct loaded_data_t *info)
 {
 	h = locate_valid_spkg_header(h);
-
 	if (!h)
-		return -1;
+		return MISSING_SPKG_HDR;
+
 	info->load_addr = h->load_address;
 	info->entry_point = info->load_addr + h->execution_offset;
 	info->size = (h->payload_length >> 8) - SPKG_BLP_SIZE;
-
-	/* copy these flags bits to the package loader.
-	 * This is made so a signed package can force NONSEC/HYP and cannot
-	 * be overriden by just rewritting the unprotected table entry */
-	if (h->payload_length & (1 << SPKG_CODE_NONSEC_BIT))
-		info->part->pkg |= (1 << PKG_NONSEC_BIT);
-	if (h->payload_length & (1 << SPKG_CODE_HYP_BIT))
-		info->part->pkg |= (1 << PKG_HYP_BIT);
 
 	/* Initramfs/DTB with a zero load address means to load it just after
 	 * the code for that core, if it's available etc */
 	if ((PKG_IS_INITRAMFS(info->part) ||  PKG_KIND(info->part) == PKGT_KIND_DTB)
 			&& info->load_addr == 0) {
 		/* round */
-		uint32_t size = (info->size + 4095) & ~4095;
+		u32 size = (info->size + 4095) & ~4095;
 
 		/* set our relocated address */
 		h->load_address = info->load_addr =
@@ -379,33 +404,22 @@ static int parse_spkg_header(struct spkg_hdr *h, struct loaded_data_t *info)
 		info->entry_point += info->load_addr;
 	}
 
-	debug("%s: load addr 0x%x, size %d, exec addr 0x%x\n", __func__,
-	      info->load_addr, info->size, info->entry_point-info->load_addr);
-
 	return validate_load_range(info);
 }
 
-static int load_spkg_header(struct pkg_entry *entry)
+static int load_spkg_header(const struct pkg_entry * const entry)
 {
-	return source_load(entry, entry->offset,
-				sizeof(*spkg), spkg);
+	return source_load(entry, entry->offset, sizeof(*spkg), spkg);
 }
-static int load_spkg_payload(struct loaded_data_t *part)
-{
-	return source_load(part->part,
-			part->part->offset + sizeof(*spkg),
-			part->size,
-			(void *)part->load_addr);
-}
-static int load_rpkg_header(struct pkg_entry *entry)
+static int load_rpkg_header(const struct pkg_entry * const entry)
 {
 	return source_load(entry, entry->offset,
 			sizeof(BLpHeader_t), spkg->blp);
 }
-static int load_rpkg_payload(struct loaded_data_t *part)
+static int load_payload(const struct loaded_data_t * const part, u32 payload_offset)
 {
 	return source_load(part->part,
-			part->part->offset + sizeof(BLpHeader_t),
+			part->part->offset + payload_offset,
 			part->size,
 			(void *)part->load_addr);
 }
@@ -416,8 +430,8 @@ int __weak ft_board_setup(void *blob, bd_t *bd)
 }
 
 #ifdef CONFIG_ARMV7_NONSEC
-/* this is used by the secondary core bootstraper to know if it should
- * kick off in HYP more or in plain NONSEC */
+/* this is used by the secondary core bootstrapper to know if it should
+ * kick off in HYP mode or in plain NONSEC */
 extern int nonsec_and_hyp;
 #endif
 
@@ -430,6 +444,7 @@ static void jump_to_image(
 
 	/* Check the execution addr is a valid memory region */
 #if defined(CONFIG_SYS_SDRAM_BASE)
+	/* This is DDR on RZ/N1D, but SRAM on RZ/N1S and RZ/N1L */
 	valid_addr |= addr_ok(code->entry_point, CONFIG_SYS_SDRAM_BASE, CONFIG_SYS_SDRAM_SIZE);
 #endif
 	valid_addr |= addr_ok(code->entry_point, RZN1_SRAM_ID_BASE, RZN1_SRAM_ID_SIZE);
@@ -438,7 +453,7 @@ static void jump_to_image(
 	valid_addr |= addr_ok(code->entry_point, RZN1_V_QSPI_BASE, RZN1_V_QSPI_SIZE);
 
 	if (!valid_addr) {
-		printf("U-Boot SPL: Invalid CA7 entry point (%08x)!\n",
+		printf("SPL: Invalid CA7 entry point (%08x)!\n",
 		       code->entry_point);
 		return;
 	}
@@ -446,8 +461,8 @@ static void jump_to_image(
 	spl_image.entry_point = code->entry_point;
 	spl_image.size = code->size;
 
-	if (dtb && dtb->load_addr && fdt_check_header((void *)dtb->load_addr) == 0) {
-		void * dtb_mapped = (void*)dtb->load_addr;
+	if (dtb->load_addr && fdt_check_header((void *)dtb->load_addr) == 0) {
+		void *dtb_mapped = (void*)dtb->load_addr;
 
 		debug("Original DTB is %d size for real\n",
 			fdt_totalsize(dtb_mapped));
@@ -462,7 +477,7 @@ static void jump_to_image(
 		/* make sure we got a bit more room to do stuff in that block */
 		fdt_open_into((void*)dtb->load_addr, dtb_mapped,
 			      dtb->size + 4096);
-		dtb->load_addr = (uint32_t)dtb_mapped;
+		dtb->load_addr = (u32)dtb_mapped;
 
 		fdt_find_and_setprop(dtb_mapped,
 				     "/chosen", "rzn1,spl",
@@ -472,7 +487,7 @@ static void jump_to_image(
 					     "/chosen", "rzn1,backup",
 					     &valid_addr, sizeof(valid_addr), 1);
 		}
-		const char * boot_source = default_load_source == PKGT_SRC_QSPI ?
+		const char *boot_source = default_load_source == PKGT_SRC_QSPI ?
 					"qspi" : default_load_source == PKGT_SRC_NAND ?
 					"nand" : "unknown";
 		fdt_find_and_setprop(dtb_mapped,
@@ -501,18 +516,17 @@ static void jump_to_image(
 				   data->load_addr, data->load_addr + data->size);
 		}
 	} else {
-		if (dtb && dtb->load_addr)
+		if (dtb->load_addr)
 			pkgt_msg(code->part, "Invalid DTB", 0);
-		dtb = NULL;
+		dtb->load_addr = 0;
 	}
 
-	if (dtb)
-		debug("%s %08x(%08x)\n", __func__, code->entry_point, dtb->load_addr);
+	debug("%s %08x(%08x)\n", __func__, code->entry_point, dtb->load_addr);
 
 	if (PKG_IS_NONSEC(code->part)) {
 #ifdef CONFIG_ARMV7_NONSEC
 		unsigned long machid = 0xffffffff;
-		unsigned long r2 = 0;
+		unsigned long r2 = dtb->load_addr;
 
 		nonsec_and_hyp = !!PKG_IS_HYP(code->part);
 
@@ -525,9 +539,6 @@ static void jump_to_image(
 
 		/* Do not remove or move this line! */
 		cleanup_before_linux();
-
-		if (dtb)
-			r2 = dtb->load_addr;
 
 		if (armv7_init_nonsec() == 0) {
 			if (nonsec_and_hyp)
@@ -543,10 +554,13 @@ static void jump_to_image(
 
 			secure_ram_addr(_do_nonsec_entry)((void *)code->entry_point,
 							  0, machid, r2);
-		} else
+		} else {
 			pkgt_msg(code->part, "NONSEC switch failed", 0);
+			return;
+		}
 #else
 		pkgt_msg(code->part, "NONSEC/HYP not compiled in", 0);
+		return;
 #endif
 	}
 	jump_to_image_linux(&spl_image, (void *)dtb->load_addr);
@@ -554,95 +568,64 @@ static void jump_to_image(
 }
 
 static int load_rpkg_from_header(
-	struct loaded_data_t *part, int verify)
+	struct loaded_data_t *iopart, int must_verify, u32 payload_offset)
 {
-	struct pkg_entry *entry = part->part;
+	struct loaded_data_t newpart = *iopart;
+	struct loaded_data_t *part = &newpart;
 	void *blp_header = (void *)&spkg->blp;
+	int ret;
 
-	/* Check the RPKG header */
-	if (parse_rpkg_header(blp_header, part)) {
-		pkgt_msg(entry, "Address/size is not allowed", 1);
-		return -3;
-	}
+	ret = parse_rpkg_header(blp_header, part);
 
-	/* Check that CM3 images are at the correct place */
-	if (PKG_CORE(entry) == PKGT_CORE_CM3 &&
-	    (part->load_addr != RZN1_SRAM_ID_BASE ||
-	     part->entry_point != RZN1_SRAM_ID_BASE)) {
-		pkgt_msg(entry, "Invalid CM3 address", 1);
-		return -4;
-	}
-	/* Load the payload */
-	if (load_rpkg_payload(part)) {
-		pkgt_msg(entry, "I/O loading payload", 1);
-		return -5;
-	}
+	if (ret == SUCCESS)
+		ret = load_payload(part, payload_offset);
 
-	if (verify) {
-		/* Check the signature */
-		int ret = rpkg_verify_sig(blp_header,
-				      (void *)part->load_addr,
+	if ((ret == SUCCESS) && must_verify)
+		ret = verify_signature(blp_header,
+				(void *)part->load_addr,
 				part->entry_point - part->load_addr);
-		if (ret) {
-			pkgt_msg(entry, "Verification failed", 1);
-			return -6;
-		}
-	}
-	return 0;
+
+	/* Everything is good, copy the part info over */
+	if (ret == SUCCESS)
+		*iopart = *part;
+
+	return ret;
 }
 
-static int load_rpkg(struct loaded_data_t *part, int verify)
+static int load_rpkg(struct loaded_data_t *part, int must_verify)
 {
 	struct pkg_entry *entry = part->part;
+	int ret;
 
-	/* Check that the CM3 can run code */
-	if (PKG_CORE(entry) == PKGT_CORE_CM3 && cm3_runs_from_qspi()) {
-		pkgt_msg(entry, "CM3 is using QSPI", 0);
-		return -1;
-	}
+	ret = load_rpkg_header(entry);
 
-	/* Load the RPKG header */
-	if (load_rpkg_header(entry)) {
-		pkgt_msg(entry, "I/O loading header", 0);
-		return -2;
-	}
+	if (ret == SUCCESS)
+		ret = load_rpkg_from_header(part, must_verify, sizeof(BLpHeader_t));
 
-	return load_rpkg_from_header(part, verify);
+	return ret;
 }
 
-static int load_spkg(struct loaded_data_t *part, int verify)
+static int load_spkg(struct loaded_data_t *iopart, int must_verify)
 {
+	struct loaded_data_t newpart = *iopart;
+	struct loaded_data_t *part = &newpart;
 	struct pkg_entry *entry = part->part;
+	int ret;
 
-	/* Check that the CM3 can run code */
-	if (PKG_CORE(entry) == PKGT_CORE_CM3 && cm3_runs_from_qspi()) {
-		pkgt_msg(entry, "CM3 is using QSPI", 0);
-		return -1;
-	}
-	/* Load the SPKG header */
-	if (load_spkg_header(entry)) {
-		pkgt_msg(entry, "I/O loading SPKG header", 0);
-		return -2;
-	}
-	/* Check the SPKG header */
-	if (parse_spkg_header(spkg->header, part)) {
-		pkgt_msg(entry, "Invalid SPKG header", 1);
-		return -3;
-	}
-	/* Check that CM3 images are at the correct place */
-	if (PKG_CORE(entry) == PKGT_CORE_CM3 &&
-	    (part->load_addr != RZN1_SRAM_ID_BASE ||
-	     part->entry_point != RZN1_SRAM_ID_BASE)) {
-		pkgt_msg(entry, "Invalid CM3 address", 1);
-		return -4;
-	}
-	/* Load the payload */
-	if (load_spkg_payload(part)) {
-		pkgt_msg(entry, "I/O loading SPKG payload", 1);
-		return -5;
-	}
+	ret = load_spkg_header(entry);
+
+	/* If we need to must_verify the signature, we only use the RPKG data */
+	if ((ret == SUCCESS) && must_verify)
+		return load_rpkg_from_header(iopart, must_verify, sizeof(*spkg));
+
+	if (ret == SUCCESS)
+		ret = parse_spkg_header(spkg->header, part);
+
+	if (ret == SUCCESS)
+		ret = load_payload(part, sizeof(*spkg));
+
 	/* Verify payload's CRC, unless it's marked as OK */
-	if (!PKG_IS_NOCRC(entry)) {
+	if ((ret == SUCCESS) && !PKG_IS_NOCRC(entry)) {
 		u32 wanted, crc;
 
 		wanted = *((u32 *)(part->load_addr + part->size - sizeof(u32)));
@@ -650,34 +633,37 @@ static int load_spkg(struct loaded_data_t *part, int verify)
 		crc = crc32(0, spkg->blp, sizeof(spkg->blp));
 		crc = crc32(crc, (void *)part->load_addr,
 			part->size - sizeof(u32));
-		if (crc != wanted) {
-			pkgt_msg(entry, "Invalid SPKG payload CRC", 1);
-			return -6;
-		}
+		if (crc != wanted)
+			ret = BAD_HEADER_CRC;
 	}
-	return 0;
+
+	/* Everything is good, copy the part info over */
+	if (ret == SUCCESS)
+		*iopart = *part;
+
+	return ret;
 }
 
 static int load_rpkgt_entry(
 	struct pkg_table *table,
 	struct pkg_entry *entry,
-	int verify, int alt_loading)
+	int must_verify, int load_alternative_pkg)
 {
 	struct loaded_data_t *part = NULL;
 	uint8_t type = PKG_TYPE(entry);
 	uint8_t core = PKG_CORE(entry);
 	uint8_t kind = PKG_KIND(entry);
 	uint8_t src = PKG_SRC(entry);
-	int ret = 0;
+	int ret = SUCCESS;
 
-	if (core > PKGT_CORE_CM3) {
-		pkgt_msg(entry, "Unsupported cpu index", 0);
-		return -1;
-	}
-	if (kind > PKGT_KIND_DATA) {
-		pkgt_msg(entry, "Unsupported package kind", 0);
-		return -2;
-	}
+	if (core > PKGT_CORE_CM3)
+		return BAD_CPU_INDEX;
+	if (kind > PKGT_KIND_DATA)
+		return BAD_PACKAGE_KIND;
+	if (type > PKGT_TYPE_RAW)
+		return BAD_PACKAGE_TYPE;
+	if (src > PKGT_SRC_NAND)
+		return BAD_PACKAGE_SRC;
 	if (src == PKGT_SRC_SAME)
 		PKG_SET_SRC(entry, default_load_source);
 
@@ -694,12 +680,15 @@ static int load_rpkgt_entry(
 
 	part = &loaded_core[core][kind];
 	if (part->part && PKG_IS_BACKUP(entry)) {
-		/* This part was already loaded, and the one
-		 * we are looking at is a backup, so we can
-		 * safely skip it */
+		/* This part was already loaded, and the one we are looking at
+		 * is a backup, so we can safely skip it */
 		return 1;
 	}
-	if (!!alt_loading != !!PKG_IS_ALT(entry)) {
+	if (!!load_alternative_pkg != !!PKG_IS_ALT(entry)) {
+		/* An alternative package is one marked as such in the Package
+		 * Table. The user can specify to load an alternative package
+		 * by pressing the 'u' key during boot.
+		 * Ignore packages that do not match the user's selection. */
 		return 2;
 	}
 	if (part->load_addr) {
@@ -709,36 +698,40 @@ static int load_rpkgt_entry(
 	part->part = entry;
 
 	if (type == PKGT_TYPE_UIMAGE) {
-		if (verify) {
-			pkgt_msg(entry, "Secure mode cannot load uImage", 0);
-			return -3;
-		}
+		if (must_verify)
+			return CANT_LOAD_SECURE_UIMAGE;
 		switch (PKG_SRC(entry)) {
+#if defined(RZN1_ENABLE_QSPI)
 		case PKGT_SRC_QSPI:
-#if defined(CONFIG_SPL_SPI_LOAD)
 			spl_spi_load_one_uimage(&spl_image, flash, entry->offset);
-#endif
 			break;
+#endif
+#if defined(RZN1_ENABLE_NAND)
 		case PKGT_SRC_NAND:
-#if defined(CONFIG_SPL_NAND_LOAD)
 			spl_nand_load_element(&spl_image, entry->offset, header);
-#endif
 			break;
+#endif
+		default:
+			return CANT_LOAD_SECURE_UIMAGE;
 		}
 		part->load_addr = spl_image.load_addr;
 		part->entry_point = spl_image.entry_point;
 		part->size = spl_image.size;
 	} else if (type == PKGT_TYPE_RPKG) {
-		ret = load_rpkg(part, verify);
+		ret = load_rpkg(part, must_verify);
 	} else if (type == PKGT_TYPE_SPKG) {
-		ret = load_spkg(part, verify);
+		ret = load_spkg(part, must_verify);
 	} else if (type == PKGT_TYPE_RAW) {
 		part->load_addr = entry->offset;
 		part->entry_point = entry->offset;
 		part->size = 0;
 	} else {
-		pkgt_msg(entry, "Unsupported pkg type", 0);
-		ret = -1;
+		ret = BAD_PACKAGE_TYPE;
+	}
+	/* If it failed, make sure we clear the data */
+	if (ret < 0) {
+		pkgt_msg(entry, get_err_str(ret), 1);
+		memset(part, 0, sizeof(struct loaded_data_t));
 	}
 	return ret;
 }
@@ -751,13 +744,13 @@ void __noreturn spl_load_multi_images(void)
 	struct pkg_table *table = &table_data;
 #if !defined(RZN1_SKIP_BOOTROM_CALLS)
 	boot_rom_api_t *pAPI = (boot_rom_api_t *)CRYPTO_API_ADDRESS;
-	uint32_t state;
+	u32 state;
 #endif
-	int verify = 0;
+	int must_verify = 0;
 	int i, nr_entries, retries_count = PKGT_REDUNDANCY_COUNT;
-	uint32_t table_offset = 0x10000;
+	u32 table_offset = 0x10000;
 	int boot_device = spl_boot_device();
-	int alt_loading = 0;
+	int load_alternative_pkg = 0;
 
 	memset(&spl_image, '\0', sizeof(spl_image));
 
@@ -774,25 +767,30 @@ void __noreturn spl_load_multi_images(void)
 	 */
 	state = pAPI->read_security_state();
 	if ((state & 0x1) && (state & 0x2)) {
-		printf("U-Boot SPL: Error: Requires secure boot, but not available\n");
+		printf("SPL: Error: Requires secure boot, but not available\n");
 		stop();
 	}
 	if (state & 0x1) {
 		debug("%s: Secure boot required\n", __func__);
-		verify = 1;
+		must_verify = 1;
 	}
 
 #if defined(RZN1_FORCE_VERIFY_USING_BOOTROM)
 	/* Force the BootROM to verify the image, used for testing */
-	verify = 1;
+	must_verify = 1;
+	printf("SPL: Forced signature verification!\n");
 #endif
+#else
+	printf("SPL: Warning: Skipping signature verification!\n");
 #endif
+
 	/* Prepare CM3 */
+	rzn1_clk_set_gate(RZN1_HCLK_CM3_ID, 1);
 	sysctrl_writel(0x5, RZN1_SYSCTRL_REG_PWRCTRL_CM3);
 
 	/* Read PKG Table from current media */
 	switch (boot_device) {
-#if defined(CONFIG_SPL_SPI_LOAD)
+#if defined(RZN1_ENABLE_QSPI)
 	case BOOT_DEVICE_SPI:
 		default_load_source = PKGT_SRC_QSPI;
 		flash = spl_spi_probe();
@@ -800,7 +798,7 @@ void __noreturn spl_load_multi_images(void)
 		debug("%s: QSPI boot %x\n", __func__, table_offset);
 		break;
 #endif
-#if defined(CONFIG_SPL_NAND_LOAD)
+#if defined(RZN1_ENABLE_NAND)
 	case BOOT_DEVICE_NAND:
 		default_load_source = PKGT_SRC_NAND;
 		table_offset = CONFIG_SYS_NAND_U_BOOT_OFFS;
@@ -808,58 +806,52 @@ void __noreturn spl_load_multi_images(void)
 		break;
 #endif
 	default:
-		printf("U-Boot SPL: Error: Invalid boot source %d\n", boot_device);
+		printf("SPL: Error: Invalid boot source %d\n", boot_device);
+		stop();
 	}
 
-	debug("%s: %sBoot dev:%d load RPKG table at %x\n", __func__,
-		alt_loading ? "ALTERNATIVE " : "", boot_device,
-	      table_offset);
+	debug("%s: Boot dev:%d load PKG Table at %x\n", __func__,
+		boot_device, table_offset);
 
 	/* Now try to load a valid table header */
 	for (; retries_count;
 		retries_count--, table_offset += sizeof(struct pkg_table)) {
 		/* Read PKG Table from current media */
 		switch (boot_device) {
-#if defined(CONFIG_SPL_SPI_LOAD)
+#if defined(RZN1_ENABLE_QSPI)
 		case BOOT_DEVICE_SPI:
-			default_load_source = PKGT_SRC_QSPI;
-			if (!flash)
-				flash = spl_spi_probe();
 			spi_flash_read(flash, table_offset,
 				       sizeof(struct pkg_table), (void *)table);
 			break;
 #endif
-#if defined(CONFIG_SPL_NAND_LOAD)
+#if defined(RZN1_ENABLE_NAND)
 		case BOOT_DEVICE_NAND:
-			default_load_source = PKGT_SRC_NAND;
 			nand_spl_load_image(table_offset,
 					    sizeof(struct pkg_table), (void *)nand_page);
 			memcpy(table, nand_page, sizeof(struct pkg_table));
 			break;
 #endif
 		}
-		if (!default_load_source)
-			debug("%s: No PKG Loading code! Config error.\n", __func__);
 
 		/*
 		 * If we don't need to verify the image signature and we don't have a
 		 * PKG Table, assume we are loading a uImage.
 		 */
-		if (!verify && table->magic != PKGT_MAGIC) {
+		if (!must_verify && table->magic != PKGT_MAGIC) {
 			if (be32_to_cpu(table->magic) == IH_MAGIC) {
 				debug("%s: No PKG Table, assuming uImage (%08x)\n", __func__,
 				      table->magic);
 				switch (default_load_source) {
+#if defined(RZN1_ENABLE_QSPI)
 				case PKGT_SRC_QSPI:
-#if defined(CONFIG_SPL_SPI_LOAD)
 					spl_spi_load_one_uimage(&spl_image, flash, table_offset);
-#endif
 					break;
+#endif
+#if defined(RZN1_ENABLE_NAND)
 				case PKGT_SRC_NAND:
-#if defined(CONFIG_SPL_NAND_LOAD)
 					spl_nand_load_element(&spl_image, table_offset, header);
-#endif
 					break;
+#endif
 				}
 				jump_to_image_no_args(&spl_image);
 			}
@@ -868,38 +860,43 @@ void __noreturn spl_load_multi_images(void)
 		}
 
 		if (table->magic != PKGT_MAGIC) {
-			printf("U-Boot SPL: Error: PKG Table does not have correct ID!\n");
+			printf("SPL: Error: PKG Table does not have correct ID!\n");
 			continue;
 		}
 
 		{	/* check CRC of the table */
-			uint32_t crc = table->crc;
+			u32 crc = table->crc;
 			table->crc = 0;
-			uint32_t wanted = crc32(0, (u8*)table, sizeof(*table));
+			u32 wanted = crc32(0, (u8*)table, sizeof(*table));
 			if (wanted != crc) {
-			//	printf("U-Boot SPL: PKGT header has invalid CRC\n");
+				debug("SPL: PKGT header has invalid CRC\n");
 				continue;
 			}
 		}
 
 		nr_entries = (table->pkgt >> PKGT_COUNT_BIT) & (PKGT_MAX_TBL_ENTRIES-1);
 		if (nr_entries == 0) {
-			printf("U-Boot SPL: Error: PKG Table does not have any entries!\n");
+			printf("SPL: Error: PKG Table is empty!\n");
 			continue;
 		}
 
-		alt_loading = spl_start_uboot();
+		load_alternative_pkg = spl_start_uboot();
 		for (i = 0; i < nr_entries; i++) {
-			load_rpkgt_entry(table,
-					&table->entries[i], verify, alt_loading);
+			int ret = load_rpkgt_entry(table,
+					&table->entries[i], must_verify, load_alternative_pkg);
+			if (ret < 0) {
+				if (must_verify)
+					continue;
+			}
 		}
 		break;/* we handled a valid table already, bail */
 	}
 
-	if (retries_count == 0)
-		printf("U-Boot SPL: Unable to load a PKGT or uImage, hanging.\n");
-	else if (retries_count < PKGT_REDUNDANCY_COUNT)
-		printf("U-Boot SPL: Warning: Skipped %d PKGT header(s)\n",
+	if (retries_count == 0) {
+		printf("SPL: Error: Unable to load a PKG Table or uImage, hanging.\n");
+		stop();
+	} else if (retries_count < PKGT_REDUNDANCY_COUNT)
+		printf("SPL: Warning: Skipped %d bad PKGT headers\n",
 		       PKGT_REDUNDANCY_COUNT - retries_count);
 
 	/* Start the Cortex M3 running, if the device is set to run from SRAM, it's
@@ -915,11 +912,11 @@ void __noreturn spl_load_multi_images(void)
 		 * Fixed delay after starting CM3 to allow it to do all setup
 		 * that *may* clash with code we are going to run on CA7s.
 		 */
-		printf("Delay after starting the CM3\n");
-		mdelay(3000);
+		printf("SPL: Delay after starting the CM3\n");
+		mdelay(500);
 	}
 
-	/* Second CA7 can be started independantly to CA7#0 */
+	/* Second CA7 can be started independently to CA7#0 */
 	if (loaded_core[PKGT_CORE_CA71][PKGT_KIND_CODE].load_addr) {
 
 		unsigned gic;
@@ -943,6 +940,6 @@ void __noreturn spl_load_multi_images(void)
 			&loaded_core[PKGT_CORE_CA70][PKGT_KIND_DATA]);
 	}
 
-	printf("U-Boot SPL: Error: PKG Table has not started Cortex A7#0.\n");
+	printf("SPL: Error: PKG Table has not started Cortex A7#0.\n");
 	stop();
 }

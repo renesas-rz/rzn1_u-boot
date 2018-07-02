@@ -69,9 +69,9 @@ crc32(const uint8_t *message, uint32_t l)
 const struct {
 	const char * name;
 	const char * doc;
-	int bit : 5;
-	int value : 5;
-	int mask : 5;
+	unsigned int bit : 5;
+	unsigned int value : 5;
+	unsigned int mask : 5;
 } options[] = {
 	{ .doc = "Options for core selection:" },
 	OM("ca70", PKG_CORE_BIT, PKGT_CORE_CA70,

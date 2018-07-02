@@ -10,6 +10,13 @@
 #ifndef CADENCE_DDR_CTRL_H
 #define CADENCE_DDR_CTRL_H
 
+enum cdns_ddr_range_prot {
+	CDNS_DDR_RANGE_PROT_BITS_PRIV_SECURE = 0,
+	CDNS_DDR_RANGE_PROT_BITS_SECURE = 1,
+	CDNS_DDR_RANGE_PROT_BITS_PRIV = 2,
+	CDNS_DDR_RANGE_PROT_BITS_FULL = 3,
+};
+
 /**
  * Initialise the Cadence DDR Controller, but doesn't start it.
  *
@@ -18,6 +25,8 @@
  *  - Full access permisions.
  *  - All read/write priorities are set to 2.
  *  - Bandwidth is set to 50%, overflow is allowed, i.e. it's a soft limit.
+ * If you want different properties for different ports and/or addr ranges, call
+ * the other functions before calling cdns_ddr_ctrl_start().
  *
  * @ddr_ctrl_base  Physical address of the DDR Controller.
  * @async          0 if DDR clock is synchronous with the controller clock
@@ -50,7 +59,7 @@ void cdns_ddr_ctrl_start(void *ddr_ctrl_base);
  * @write_pri Priority for writes. Range is 0 to 3, where 0 is highest priority.
  */
 void cdns_ddr_set_port_rw_priority(void *base, int port,
-			  u8 read_pri, u8 write_pri, u8 fifo_type);
+			  u8 read_pri, u8 write_pri);
 
 /**
  * Specify address range for a protection entry, for a specific AXI slave port.
@@ -61,7 +70,18 @@ void cdns_ddr_set_port_rw_priority(void *base, int port,
  * @start_addr Physical of the address range, must be aligned to 16KB.
  * @size       Size of the address range, must be multiple of 16KB.
  */
-void cdns_ddr_enable_port_addr_range_x(void *base, int port, int entry,
+void cdns_ddr_enable_port_addr_range(void *base, int port, int entry,
+			      u32 addr_start, u32 size);
+
+/**
+ * Specify address range for a protection entry, for all AXI slave ports.
+ *
+ * @base       Physical address of the DDR Controller.
+ * @entry      The protection entry. Range is 0 to 15.
+ * @start_addr Physical of the address range, must be aligned to 16KB.
+ * @size       Size of the address range, must be multiple of 16KB.
+ */
+void cdns_ddr_enable_addr_range(void *base, int entry,
 			      u32 addr_start, u32 size);
 
 /**
@@ -73,14 +93,38 @@ void cdns_ddr_enable_port_addr_range_x(void *base, int port, int entry,
  * @port       Port number. Range is 0 to 3.
  * @entry      The protection entry. Range is 0 to 15.
  */
-void cdns_ddr_enable_port_prot_x(void *base, int port, int entry,
-	u8 range_protection_bits,
+void cdns_ddr_enable_port_prot(void *base, int port, int entry,
+	enum cdns_ddr_range_prot range_protection_bits,
 	u16 range_RID_check_bits,
 	u16 range_WID_check_bits,
 	u8 range_RID_check_bits_ID_lookup,
 	u8 range_WID_check_bits_ID_lookup);
 
-void set_port_bandwidth(void *base, int port,
+/**
+ * Specify protection entry details, for all AXI slave ports.
+ *
+ * See the hardware manual for details of the range check bits.
+ *
+ * @base       Physical address of the DDR Controller.
+ * @entry      The protection entry. Range is 0 to 15.
+ */
+void cdns_ddr_enable_prot(void *base, int entry,
+	enum cdns_ddr_range_prot range_protection_bits,
+	u16 range_RID_check_bits,
+	u16 range_WID_check_bits,
+	u8 range_RID_check_bits_ID_lookup,
+	u8 range_WID_check_bits_ID_lookup);
+
+/**
+ * Specify bandwidth for each AXI port.
+ *
+ * See the hardware manual for details of the range check bits.
+ *
+ * @base       Physical address of the DDR Controller.
+ * @port       Port number. Range is 0 to 3.
+ * @max_percent     0 to 100.
+ */
+void cdns_ddr_set_port_bandwidth(void *base, int port,
 		        u8 max_percent, u8 overflow_ok);
 
 /* Standard JEDEC registers */

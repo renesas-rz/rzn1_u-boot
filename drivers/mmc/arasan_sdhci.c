@@ -38,6 +38,9 @@ static int arasan_sdhci_probe(struct udevice *dev)
 		host->voltages = MMC_VDD_32_33 | MMC_VDD_33_34;
 	}
 
+	if (fdt_get_property(fdt, node, "non-removable", NULL))
+		host->quirks |= SDHCI_QUIRK_NO_CD;
+
 #ifdef CONFIG_SDHCI_ARASAN_QUIRKS
 	host->quirks |= CONFIG_SDHCI_ARASAN_QUIRKS;
 #endif

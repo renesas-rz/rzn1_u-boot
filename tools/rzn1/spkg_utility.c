@@ -4,25 +4,29 @@
  *
  * (C) Copyright 2016 Renesas Electronics Europe Ltd
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * SPDX-License-Identifier:	BSD-2-Clause
  */
-#define _GNU_SOURCE /* for strdupa */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <libgen.h>
 #include <string.h>
 
 #include "spkg_header.h"
 
+/* For Windows compatibility */
+#ifndef htole32
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+ #define htole32(x)	(x)
+#elif __BYTE_ORDER == __BIG_ENDIAN
+ #define htole32(x)	__builtin_bswap32((uint32_t)(x))
+#endif
+#endif
+
 #define MAX_PATH		300
-#define MAX_CONFIG_NAME_SIZE	50
-#define MAX_CONFIG_LINE_SIZE	500
 
 // Note: Order of bit fields is not used, this is purely just holding the SPKG information.
 struct spkg_header {
-	char config_filename[MAX_PATH];
 	char input[MAX_PATH];
 	char output[MAX_PATH];
 	unsigned int version:4;
@@ -46,15 +50,6 @@ struct spkg_header g_header = {
 
 int verbose = 0;
 
-/* strip traling spaces and end of lines from string _ptr */
-#define strip_trailing(_ptr) { \
-	while ((_ptr) && *(_ptr) && (_ptr)[strlen((_ptr))-1] <= ' ') \
-		(_ptr)[strlen((_ptr))-1] = 0; \
-	}
-/* strip leading spaces */
-#define strip_leading(_ptr) \
-	while ((_ptr) && (*(_ptr) == ' ' || *(_ptr) == '\t')) (_ptr)++;
-
 static uint32_t
 crc32(const uint8_t *message, uint32_t l)
 {
@@ -73,8 +68,8 @@ crc32(const uint8_t *message, uint32_t l)
 
 static int spkg_write(
 	struct spkg_header *h,
-	FILE * file_Input,
-	FILE * file_SPKG)
+	FILE *file_Input,
+	FILE *file_SPKG)
 {
 	int i;
 	uint32_t length_inputfile;
@@ -108,7 +103,7 @@ static int spkg_write(
 	printf("In: %8d ", length_inputfile);
 	printf("padding to %3dKB: %6d ", h->padding / 1024, padding);
 	printf("Total: 0x%08x ", length_total);
-	printf("%s\n", basename(strdupa(h->output)));
+	printf("%s\n", h->output);
 
 	/* Create and zero array for SPKG */
 	pData = malloc(length_total);
@@ -171,13 +166,11 @@ static int spkg_write(
 		return -1;
 	}
 
-
 	return 0;
 }
 
 const char * usage =
 	"%s\n"
-	"  [--config <filename]	: read configuration from <filename>\n"
 	"  [-i <filename>]	: input file\n"
 	"  [-o <filename>]	: output file\n"
 	"  [--load_address <hex constant>] : code load address\n"
@@ -195,8 +188,8 @@ const char * usage =
 
 static int spkg_parse_option(
 	struct spkg_header *h,
-	const char * name,
-	const char * sz,
+	const char *name,
+	const char *sz,
 	uint32_t value )
 {
 //	printf("%s %s=%s %08x\n", __func__, name, sz, value);
@@ -204,8 +197,6 @@ static int spkg_parse_option(
 		strncpy(h->input, sz, sizeof(h->input));
 	else if (!strcmp("file_output", name) || !strcmp("o", name))
 		strncpy(h->output, sz, sizeof(h->output));
-	else if (!strcmp("config", name) && !h->config_filename[0])
-		strncpy(h->config_filename, name, sizeof(h->config_filename));
 	else if (!strcmp("version", name))
 		h->version = value;
 	else if (!strcmp("load_address", name))
@@ -238,67 +229,9 @@ static int spkg_parse_option(
 			h->padding = value;
 	} else
 		return -1;
+
 	return 0;
 }
-
-/*
- * Read a configuration file for the SPKG header.
- * NOTE: The length field should not be specified in the config file because it is calculated.
- * Config file format: (Note Values can be are specified in HEX if preceded with 0x)
- * name = Value
- * name = Value
-  ...
-*/
-static int spkg_read_config(FILE * file, struct spkg_header *h)
-{
-	char line[MAX_CONFIG_LINE_SIZE];
-
-	do {
-		char * ptr = line;
-		unsigned long int value = 0;
-
-		if (!fgets(ptr, MAX_CONFIG_LINE_SIZE, file)) {
-			if (feof(file))
-				return 0;
-			else {
-				perror(__func__);
-				return -1;
-			}
-		}
-		strip_leading(ptr);
-		strip_trailing(ptr);
-
-		/* Check for a comment line */
-		if (!strncmp(ptr, "//", 2))
-			continue;
-
-		/* Check for a blank line */
-		if (strlen(ptr) < 4) {
-			/*Don't parse this line */
-			continue;
-		}
-		char * sz = ptr;
-		char * name = strsep(&sz, "=");
-
-		if (!name) {
-			fprintf(stderr, "%s invalid argument '%s'\n",
-				__func__, line);
-			return -1;
-		}
-		strip_trailing(name);
-		strip_leading(sz);
-
-		if (!sscanf(sz, "0x%lx", &value))
-			sscanf(sz, "%lu", &value);
-
-		if (spkg_parse_option(h, name, sz, value)) {
-			fprintf(stderr, "%s Error invalid '%s'\n", __func__,  name);
-			return -1;
-		}
-
-	} while (1);
-}
-
 
 int main(int argc, char *argv[])
 {
@@ -306,59 +239,36 @@ int main(int argc, char *argv[])
 	FILE *file_Input = NULL;
 	int result = -1;
 
-	if (argc == 2 && argv[1][0] != '-') {
-		strncpy(g_header.config_filename, argv[1],
-			sizeof(g_header.config_filename));
-	} else {
-		for (int i = 1; i < argc; i++) {
-			unsigned long int value = 0;
-			char * ptr = strdup(argv[i]);
-			char * sz = ptr;
-			char * name = strsep(&sz, "=");
+	for (int i = 1; i < argc; i++) {
+		unsigned long int value = 0;
+		char *name = argv[i];
+		char *sz = NULL;
 
-			if (!name || name[0] != '-') {
-				fprintf(stderr, "%s invalid argument '%s'\n",
-					argv[0], argv[i]);
-				return -1;
-			}
+		if (!name || name[0] != '-') {
+			fprintf(stderr, "%s invalid argument '%s'\n",
+				argv[0], argv[i]);
+			return -1;
+		}
+		name++;
+		if (name[0] == '-')
 			name++;
-			if (name[0] == '-')
-				name++;
-			strip_trailing(name);
-			strip_leading(sz);
 
-			if (!sz && i < argc - 1 && argv[i+1][0] != '-')
-				sz = argv[++i];
+		if (i < argc - 1 && argv[i+1][0] != '-')
+			sz = argv[++i];
 
-			if (sz) {
-				if (!sscanf(sz, "0x%lx", &value))
-					sscanf(sz, "%lu", &value);
-			} else {
-				value = 1;
-			}
-			if (spkg_parse_option(&g_header, name, sz, value)) {
-				fprintf(stderr, "%s Error invalid '%s'\n",
-					argv[0],  argv[i]);
-				return -1;
-			}
+		if (sz) {
+			if (!sscanf(sz, "0x%lx", &value))
+				sscanf(sz, "%lu", &value);
+		} else {
+			value = 1;
+		}
+		if (spkg_parse_option(&g_header, name, sz, value)) {
+			fprintf(stderr, "%s Error invalid '%s'\n",
+				argv[0],  argv[i]);
+			return -1;
 		}
 	}
 
-	if (g_header.config_filename[0]) {
-		FILE *config = fopen(g_header.config_filename, "r");
-
-		if (!config) {
-			perror(g_header.config_filename);
-			exit(1);
-		}
-
-		if (spkg_read_config(config, &g_header)) {
-			fprintf(stderr, "%s Invalid config: %s\n",
-				argv[0], g_header.config_filename);
-			exit(1);
-		}
-		fclose(config);
-	}
 	if (!g_header.input[0]) {
 		fprintf(stderr, usage, argv[0]);
 		exit(1);
@@ -368,6 +278,7 @@ int main(int argc, char *argv[])
 			"%s.spkg", g_header.input);
 	if (verbose)
 		printf("%s -> %s\n", g_header.input, g_header.output);
+
 	/*NOTE: Using binary mode as this seems necessary if running in Windows */
 	file_SPKG = fopen(g_header.output, "wb");
 	file_Input = fopen(g_header.input, "rb");
@@ -388,10 +299,9 @@ int main(int argc, char *argv[])
 	if (result >= 0) {
 		if (verbose)
 			printf("%s created \n", g_header.output);
-	} else
+	} else {
 		fprintf(stderr, "ERROR creating %s\n", g_header.output);
+	}
 
 	return result;
-
 }
-
