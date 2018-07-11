@@ -114,7 +114,7 @@ static void rzn1_enable_usb_pll(int h2mode)
 		rzn1_clk_set_gate(RZN1_CLK_USBUART0_ID, 1);
 }
 
-#if defined(RZN1_DONT_TURN_OFF_CLOCKS)
+#if !defined(RZN1_TURN_OFF_CLOCKS)
 static void rzn1_start_usb_compat(void)
 {
 	/*
@@ -136,7 +136,7 @@ static void rzn1_start_usb_compat(void)
 
 int arch_cpu_init(void)
 {
-#if !defined(RZN1_DONT_TURN_OFF_CLOCKS)
+#if defined(RZN1_TURN_OFF_CLOCKS)
 	int i;
 
 	/* Turn off all clocks to save power */
@@ -169,7 +169,7 @@ int arch_cpu_init(void)
 		rzn1_sysctrl_div(RZN1_SYSCTRL_REG_PWRCTRL_PG1_PR2DIV, RZN1_UART_PLL_DIV);
 	}
 
-#if defined(RZN1_DONT_TURN_OFF_CLOCKS)
+#if !defined(RZN1_TURN_OFF_CLOCKS)
 	rzn1_start_usb_compat();
 #endif
 
