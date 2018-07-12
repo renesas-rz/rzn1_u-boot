@@ -101,7 +101,7 @@
  * It's connected to a Marvell 88E1512 PHY, which is connected to RGMII/GMII
  * Converter 1, and then on to GMAC1.
  */
- #define CONFIG_PHY_ADDR		8
+ #define CONFIG_PHY_ADDR		0
 
 /*
  * GMAC2 is connected to the 5pt-switch, and all ports are enabled.
