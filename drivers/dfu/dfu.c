@@ -496,7 +496,7 @@ int dfu_config_entities(char *env, char *interface, char *devstr)
 #ifdef CONFIG_CMD_DFU_EXT
 			continue; /* it's OK for a probe to fail */
 #else
-			free(dfu);
+			/* We will free "dfu" in dfu_free_entities() */
 			return -1;
 #endif
 		}
