@@ -20,7 +20,6 @@
 	compatible = "renesas,rzn1d-db", "renesas,rzn1";
 
 	chosen {
-		bootargs = "console=ttyS0,115200";
 		stdout-path = &uart0;
 		linux,stdout-path = &uart0;
 	};
@@ -324,14 +323,20 @@
 		<&dma0 9 0 0>;
 	dma-names = "rx", "tx";
 
+	cs-gpios = <&gpio2a 31 GPIO_ACTIVE_LOW>;
+
 	/* Ext Board: Serial (SPI) F-RAM device (FM25V10-G) */
 	fram: fm25@0 {
-		compatible = "cypress,fm25";
+		compatible = "atmel,at25";
 		reg = <0>;
-		/* Reduced clock rate due to quickswitch */
-		spi-max-frequency = <21000000>;
+                /* Max freq supported by RZ/N1 */
+		spi-max-frequency = <12500000>;
+		size = <131072>;
+		address-width = <24>;
+		pagesize = <4096>;
 	};
 };
+
 &sdio0 {
 	/* Ext Board */
 	status = "okay";

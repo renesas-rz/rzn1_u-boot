@@ -113,7 +113,7 @@
  * RGMII/GMII Conv   PHY Addr    PHY     Connector
  *        1             0       Marvell    ETH1
  */
- #define CONFIG_PHY_ADDR		0
+ #define CONFIG_PHY_ADDR		8
 
 /*
  * GMAC2 is connected to the 5-port Switch and all ports are enabled.

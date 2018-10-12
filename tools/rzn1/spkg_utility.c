@@ -28,7 +28,7 @@
 // Note: Order of bit fields is not used, this is purely just holding the SPKG information.
 struct spkg_header {
 	char input[MAX_PATH];
-	char output[MAX_PATH];
+	char output[MAX_PATH+5];
 	unsigned int version:4;
 	unsigned int ecc_enable:1;
 	unsigned int ecc_block_size:2;

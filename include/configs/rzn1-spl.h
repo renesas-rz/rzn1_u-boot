@@ -13,9 +13,6 @@
 #define CONFIG_SPL_FRAMEWORK
 #define CONFIG_SPL_BOARD_INIT
 
-/* This is required to fish the ethernet addresses from the environment */
-#define CONFIG_SPL_ENV_SUPPORT
-
 #if defined(CONFIG_SPL_NAND_LOAD)
 	#define CONFIG_SPL_NAND_DRIVERS
 	#define CONFIG_SPL_NAND_ONFI

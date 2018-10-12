@@ -202,17 +202,22 @@
 /* U-Boot/SPL is at the top of UA SRAM, out of the way of CM3 code which has to
  * be at the start of UA SRAM. These definitions setup SPL so that code, heap,
  * and stack at located together. */
-#define CONFIG_SPL_MAX_FOOTPRINT	(80 * 1024)
-#define CONFIG_SYS_SPL_MALLOC_SIZE	(40 * 1024)
-#define RZN1_SPL_STACK_SIZE		(8 * 1024)
+#define CONFIG_SPL_MAX_FOOTPRINT	(55 * 1024)
+#define CONFIG_SYS_SPL_MALLOC_SIZE	(38 * 1024)
+#define RZN1_SPL_STACK_SIZE		(3 * 1024)
 
 #define RZN1_SPL_SRAM_SIZE		(CONFIG_SPL_MAX_FOOTPRINT + \
 						CONFIG_SYS_SPL_MALLOC_SIZE + \
 						RZN1_SPL_STACK_SIZE)
-#define CONFIG_SPL_TEXT_BASE		0x040e0000 // (0x04100000 - RZN1_SPL_SRAM_SIZE)
+#define CONFIG_SPL_TEXT_BASE		0x040e0000
 
 #define CONFIG_SYS_SPL_MALLOC_START	(CONFIG_SPL_TEXT_BASE + CONFIG_SPL_MAX_FOOTPRINT)
 #define CONFIG_SPL_STACK		(CONFIG_SYS_SPL_MALLOC_START + CONFIG_SYS_SPL_MALLOC_SIZE + RZN1_SPL_STACK_SIZE)
+
+#if CONFIG_SPL_STACK >= (RZN1_SRAM_ID_BASE + RZN1_SRAM_ID_SIZE - 1024)
+ #error "On RZ/N1, the top 1KB is reserved for the PKG Table. This needs a\
+ fixed location when wrapped in an SPKG, due to signature verification."
+#endif
 
 /* If QSPI is enabled, default to loading the image or Package Table from QSPI */
 #if defined(RZN1_ENABLE_QSPI)

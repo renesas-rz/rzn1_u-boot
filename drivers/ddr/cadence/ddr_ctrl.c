@@ -70,6 +70,7 @@
 #define DDR_RANGE_PROT_REGS		(218 * 4 + 2)	/* DENALI_CTL_218 */
 #define DDR_ARB_CMD_Q_THRESHOLD_REG	(346 * 4 + 2)	/* DENALI_CTL_346 */
 #define DDR_AXI_PORT_BANDWIDTH_REG	(346 * 4 + 3)	/* DENALI_CTL_346 */
+#define DDR_OPT_RMODW_REG		(372 * 4 + 3)	/* DENALI_CTL_372 */
 
 static void ddrc_writeb(u8 val, void *p)
 {
@@ -361,6 +362,9 @@ void cdns_ddr_ctrl_init(void *ddr_ctrl_basex, int async,
 
 	for (i = 350; i <= 374; i++)
 		ddrc_writel(*(reg350 - 350 + i), ddr_ctrl_base + i);
+
+	/* Disable optimised read-modify-write logic */
+	ddrc_writeb(0, base8 + DDR_OPT_RMODW_REG);
 
 	/*
 	 * Disable all interrupts, we are not handling them.

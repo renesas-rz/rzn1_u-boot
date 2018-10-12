@@ -15,6 +15,8 @@
 static int nand_inited;
 
 struct mtd_info *nand_info[1];
+static void *nand_page;
+
 
 /* Generic SPL functions below */
 int nand_scan_ident(struct mtd_info *mtd, int max_chips,
@@ -120,6 +122,12 @@ void nand_init(void)
 	/* setup flash layout (does not scan as we override that) */
 	mtd->size = chip->chipsize;
 
+	nand_page = malloc(mtd->writesize);
+	if (!nand_page) {
+		printf("%s: malloc failed!\n", __func__);
+		hang();
+	}
+
 	debug("NAND %llu MiB\n", (mtd->size / (1024 * 1024)));
 }
 
@@ -155,8 +163,8 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *buf)
 	struct nand_chip *chip;
 	unsigned int page;
 	unsigned int nand_page_per_block;
-	unsigned int sz = 0;
-	uint32_t data_offs;
+	uint32_t page_mask;
+	uint32_t page_offset;
 
 	/* Allow multiple calls */
 	if (!nand_inited) {
@@ -168,35 +176,29 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *buf)
 
 	page = offs >> chip->page_shift;
 	nand_page_per_block = mtd->erasesize / mtd->writesize;
+	page_mask = mtd->writesize - 1;
+	page_offset = offs & page_mask;
 
 	debug("%s offset:0x%08x len:%d page:%d\n", __func__, offs, size, page);
 
-	/* Read first page */
-	if (spl_read_page_ecc(mtd, buf, page) < 0)
-		return -EIO;
-	page++;
+	/* Read first page - might only want part of the page */
+	if (page_offset) {
+		unsigned int part = min(mtd->writesize - page_offset, size);
 
-	/* If the caller passed in an offset that is not page aligned, we would
-	 * have read from an offset that is page aligned. Therefore, deal
-	 * with it by moving the data in the output buffer.
-	 */
-	data_offs = offs & ((1 << chip->page_shift) - 1);
-	sz = mtd->writesize - data_offs;
-	if (data_offs) {
-		u8 *buf8 = buf;
-		unsigned int i;
-		for (i = 0; i < sz; i++) {
-			*buf8 = *(buf8 + data_offs);
-			buf8++;
-		}
+		/* Read whole page into temp buf, copy the bit we want */
+		if (spl_read_page_ecc(mtd, nand_page, page) < 0)
+			return -EIO;
+		memcpy(buf, nand_page + page_offset, part);
+		buf += part;
+		size -= part;
+		page++;
 	}
-	buf += sz;
 
-	size = roundup(size, mtd->writesize);
-	while (sz < size) {
+	/* Whole pages */
+	while (size >= mtd->writesize) {
 		if (spl_read_page_ecc(mtd, buf, page) < 0)
 			return -EIO;
-		sz += mtd->writesize;
+		size -= mtd->writesize;
 		buf += mtd->writesize;
 		page++;
 
@@ -216,6 +218,14 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *buf)
 					return -ENOMEM;
 			}
 		}
+	}
+
+	/* Remaining data */
+	if (size > 0) {
+		/* Read whole page into temp buf, copy the bit we want */
+		if (spl_read_page_ecc(mtd, nand_page, page) < 0)
+			return -EIO;
+		memcpy(buf, nand_page, size);
 	}
 
 	return 0;

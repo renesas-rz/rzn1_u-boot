@@ -588,6 +588,8 @@ static void read_dma(struct chip_info *info, int page, int column,
 	}
 
 	command_and_wait(command, INT_STATUS_DMA_INT_FL);
+
+	dma_map_single(nfc_info->dma.buf, size, DMA_FROM_DEVICE);
 }
 
 /* Write using DMA */
@@ -624,10 +626,10 @@ static void write_dma(struct chip_info *info, int page, int column,
 
 	/* Set up DMA and transfer size */
 	init_dma(nfc_info->dma.phys, size);
+	dma_map_single(nfc_info->dma.buf, size, DMA_TO_DEVICE);
 	nfc_write(size, DATA_SIZE_REG);
 
 	/* Set up addresses */
-
 	nfc_write(column, ADDR0_COL_REG);
 	nfc_write(page, ADDR0_ROW_REG);
 
@@ -1145,8 +1147,8 @@ static void nfc_command(struct mtd_info *mtd, unsigned int command,
 		nfc_write(READID_LENGTH, DATA_SIZE_REG);
 
 		/* Send read id command */
-		command_and_wait(COMMAND_READ_ID,
-				 INT_STATUS_DMA_INT_FL);
+		command_and_wait(COMMAND_READ_ID, INT_STATUS_DMA_INT_FL);
+		dma_map_single(nfc_info->dma.buf, READID_LENGTH, DMA_FROM_DEVICE);
 		break;
 	case NAND_CMD_STATUS:
 		MTD_TRACE("STATUS, defer to later read byte\n");
@@ -1163,8 +1165,8 @@ static void nfc_command(struct mtd_info *mtd, unsigned int command,
 		init_dma(nfc_info->dma.phys, NAND_PARAM_SIZE_MAX);
 		nfc_write(NAND_PARAM_SIZE_MAX, DATA_SIZE_REG);
 
-		command_and_wait(COMMAND_PARAM,
-				 INT_STATUS_DMA_INT_FL);
+		command_and_wait(COMMAND_PARAM, INT_STATUS_DMA_INT_FL);
+		dma_map_single(nfc_info->dma.buf, NAND_PARAM_SIZE_MAX, DMA_FROM_DEVICE);
 		break;
 	default:
 		MTD_TRACE("Unhandled command 0x%02x (col %d, page addr %d)\n",

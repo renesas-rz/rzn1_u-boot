@@ -140,10 +140,12 @@ static void print_usage(
 		else
 			printf(" %s\n", options[i].doc);
 	}
+	printf("Optional options:\n");
+	printf("  -redundancy <times>  Number of times the Package Table is written, default is %d\n", PKGT_REDUNDANCY_COUNT);
 	printf(" Mandatory options:\n");
 	printf("  -offset <offset>  Offset in source (hex)\n");
 	printf("  <file>    Filename of PKG Table file to be extended, or written if it doesn't exist.\n");
-	printf(" (Table size is %ld bytes; with redundancy of %d it is %ld total)\n",
+	printf(" (Table size is %ld bytes; with default redundancy of %d it is %ld total)\n",
 		sizeof(struct pkg_table), PKGT_REDUNDANCY_COUNT,
 		sizeof(struct pkg_table) * PKGT_REDUNDANCY_COUNT);
 	exit(exitcode);
@@ -159,6 +161,7 @@ int main(int argc, char *argv[])
 	uint32_t offset = ~0;
 	uint32_t pkgt = PKGT_TYPE_SPKG << PKG_TYPE_BIT;
 	int pkg_count = 0, i;
+	int redundancy = PKGT_REDUNDANCY_COUNT;
 
 	for (int i = 1; i < argc; i++) {
 		char *p = argv[i];
@@ -181,6 +184,10 @@ int main(int argc, char *argv[])
 			char *endptr;
 			i++;
 			offset = strtoul(argv[i], &endptr, 0);
+		} else if (!strncmp(p, "-r", 2) && i < argc-1) {
+			char *endptr;
+			i++;
+			redundancy = strtoul(argv[i], &endptr, 0);
 		} else if (!strncmp(p, "-h", 2))
 			print_usage(argv[0], 0);
 		else if (p[0] == '-' || image_name) {
@@ -241,7 +248,7 @@ int main(int argc, char *argv[])
 		perror(image_name);
 		exit(1);
 	}
-	for (i = 0; i < PKGT_REDUNDANCY_COUNT; i++) {
+	for (i = 0; i < redundancy; i++) {
 		struct pkg_table w = table;
 		/* if debugging, corrupt the first entr(ies) to validate SPL
 		 * error recovery. Pass -debug-corrupt multiple times to

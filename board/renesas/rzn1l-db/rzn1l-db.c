@@ -65,6 +65,10 @@ void rzn1_setup_pinmux(void)
 	rzn1_board_pinmux(RZN1_P_MDIO1);
 #endif
 
+#if (defined(RZN1_ENABLE_USBF) || defined(RZN1_ENABLE_USBH)) && !defined(CONFIG_SPL_BUILD)
+	rzn1_board_pinmux(RZN1_P_USB);
+#endif
+
 	/*
 	 * This is special 'virtual' pins for the MDIO multiplexing.
 	 * The default sets MDIO1 control to the 5-port Switch, but U-Boot
@@ -127,7 +131,7 @@ int board_init(void)
 #define I2C_IO_SW_LEDS		0x8
 #define I2C_IO_SW_SWITCHES	0x1
 
-static u8 read_sw5(void)
+static u8 read_i2c_sw(int addr)
 {
 	struct udevice *dev;
 	int ret;
@@ -143,14 +147,8 @@ static u8 read_sw5(void)
 		return 0;
 	}
 
-#if 0
-	/* Test switches, read them and set the LEDs to the same value */
-	dm_i2c_read(dev, I2C_IO_SW_SWITCHES, &buf, 1);
-	dm_i2c_write(dev, I2C_IO_SW_LEDS, &buf, 1);
-#endif
-
 	/* Read mode switch settings */
-	ret = dm_i2c_read(dev, I2C_IO_CFG_MODE, &buf, 1);
+	ret = dm_i2c_read(dev, addr, &buf, 1);
 	if (ret) {
 		printf("Failed to read Mode switches via I2C\n");
 		return 0;
@@ -162,7 +160,8 @@ static u8 read_sw5(void)
 int board_late_init(void)
 {
 #if defined(RZN1_ENABLE_I2C) && !defined(CONFIG_SPL_BUILD)
-	u8 sw5 = read_sw5();
+	u8 sw5 = read_i2c_sw(I2C_IO_CFG_MODE);
+	u8 sw4 = read_i2c_sw(I2C_IO_SW_SWITCHES);
 
 	/*
 	 * Do any I2C here, not board_init(). When board_init() runs, U-Boot has
@@ -172,16 +171,18 @@ int board_late_init(void)
 	if (sw5 & BIT(0))
 		rzn1_setup_eth0_pinmux();
 	else
-		printf("Note: SW5 enables PMOD, not eth0\n");
+		printf("Note: SW5:1 enables PMOD, not eth0\n");
 
 	if (!(sw5 & BIT(1)))
-		printf("Note: SW5 I2C access to the EEPROM is via EtherCAT\n");
+		printf("Note: SW5:2 I2C access to the EEPROM is via EtherCAT\n");
 
-	/* Note that SW5:3 is not read by the CPLD at the moment so this does
-	 * not detect that the board is in USB Host mode */
-	if (sw5 & BIT(3)) {
-		printf("Note: SW5 enables USB Host\n");
-		rzn1_board_pinmux(RZN1_P_USB);
+	/* Note that SW5:3 is not read by the CPLD, so we can't use this to
+	 * detect if the board is in USB Host mode. */
+	/* Instead, if switch SW4:1 is on assume we are in USB Host mode */
+//	if (sw5 & BIT(3)) {
+	if (!(sw4 & BIT(0))) {
+		printf("Note: SW4:1 enables USB Host\n");
+		rzn1_uses_usb_func(false);
 	} else {
 		rzn1_uses_usb_func(true);
 	}

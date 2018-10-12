@@ -20,7 +20,6 @@
 	compatible = "renesas,rzn1s-db", "renesas,rzn1";
 
 	chosen {
-		bootargs = "console=ttyS0,115200";
 		stdout-path = &uart0;
 		linux,stdout-path = &uart0;
 	};

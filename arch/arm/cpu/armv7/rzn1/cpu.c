@@ -10,6 +10,7 @@
 #include <asm/io.h>
 #include <usb.h>
 #include "ipcm.h"
+#include "renesas/pinctrl-rzn1.h"
 #include "renesas/rzn1-memory-map.h"
 #include "renesas/rzn1-utils.h"
 #include "renesas/rzn1-clocks.h"
@@ -203,6 +204,12 @@ int arch_cpu_init(void)
 	/* ROM needed, 2nd core in BootROM and SPL calls BootROM functions */
 	rzn1_clk_set_gate(RZN1_HCLK_ROM_ID, 1);
 
+	/* Undo BootROM pimux changes that may be used for other purposes */
+	rzn1_pinmux_set(RZN1_MUX_PUP_8MA(73, HIGHZ));
+	rzn1_pinmux_set(RZN1_MUX_PUP_8MA(149, HIGHZ));
+	rzn1_pinmux_set(RZN1_MUX_PUP_8MA(150, HIGHZ));
+
+	/* Board specific pinmux */
 	rzn1_setup_pinmux();
 
 	return 0;
@@ -320,13 +327,46 @@ int __weak __ft_board_setup(void *blob, bd_t *bd)
 	return 0;
 }
 
+#if !defined (CONFIG_ARCH_RZN1L)
+static int rzn1_spin_table_update_dt(void *fdt)
+{
+	int cpus_offset, offset;
+	const char *prop;
+	int ret;
+	u32 bootaddr = (u32)smp_secondary_bootaddr;
+
+	cpus_offset = fdt_path_offset(fdt, "/cpus");
+	if (cpus_offset < 0)
+		return -ENODEV;
+
+	for (offset = fdt_first_subnode(fdt, cpus_offset);
+	     offset >= 0;
+	     offset = fdt_next_subnode(fdt, offset)) {
+		prop = fdt_getprop(fdt, offset, "device_type", NULL);
+		if (!prop || strcmp(prop, "cpu"))
+			continue;
+
+		prop = fdt_getprop(fdt, offset, "cpu-release-addr", NULL);
+		if (prop) {
+			ret = fdt_setprop_u32(fdt, offset, "cpu-release-addr",
+					bootaddr);
+			if (ret)
+				return -ENOSPC;
+		}
+	}
+
+	return 0;
+}
+#endif
+
 /* This function updates the Device Tree that is passed to Linux for starting
  * up core 1 (SMP). Note that full U-Boot may or may not switch to NONSEC, or
  * NONSEC+HYP, depending on env variables.
  */
 int ft_board_setup(void *blob, bd_t *bd)
 {
-#if defined(CONFIG_ARMV7_NONSEC)
+#if defined(CONFIG_ARMV7_NONSEC) && !defined (CONFIG_ARCH_RZN1L)
+
 #if !defined(CONFIG_SPL_BUILD)
 	if (!armv7_boot_nonsec())
 		return 0;
@@ -338,6 +378,7 @@ int ft_board_setup(void *blob, bd_t *bd)
 
 	fdt_find_and_setprop(blob, "/chosen", "rzn1,bootaddr",
 			     &bootaddr, sizeof(bootaddr), 1);
+	rzn1_spin_table_update_dt(blob);
 #endif
 	return 0;
 }
