@@ -227,9 +227,9 @@ int rzn1_usb_init(int index, enum usb_init_type init)
 	rzn1_enable_usb_pll(!rzn1_usb_func_en);
 
 	/* Enable USB clocks */
+	rzn1_clk_set_gate(RZN1_HCLK_USBPM_ID, 1);
 	if (init == USB_INIT_HOST) {
 		rzn1_clk_set_gate(RZN1_HCLK_USBH_ID, 1);
-		rzn1_clk_set_gate(RZN1_HCLK_USBPM_ID, 1);
 		rzn1_clk_set_gate(RZN1_CLK_PCI_USB_ID, 1);
 	}
 	if (init == USB_INIT_DEVICE)

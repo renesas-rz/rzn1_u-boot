@@ -253,8 +253,10 @@ int main(int argc, char *argv[])
 		/* if debugging, corrupt the first entr(ies) to validate SPL
 		 * error recovery. Pass -debug-corrupt multiple times to
 		 * corrupt extra headers */
-		if (corrupt--)
+		if (corrupt) {
 			w.crc = 0xcafef00d;
+			corrupt--;
+		}
 		fwrite(&w, 1, sizeof(w), fp);
 	}
 	fclose(fp);

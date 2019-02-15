@@ -338,6 +338,9 @@ int board_phy_config(struct phy_device *phydev)
 
 #define MICREL_KSZ8041		0x221513
 	if (phydev->phy_id == MICREL_KSZ8041) {
+		/* RZ/N1 needs the MII preamble for 10Mbps */
+		m88e1518_phy_writebits(phydev, 0x14, 6, 1, 1);
+
 		/* LED Mode: link up = drive low, link down = drive high */
 		m88e1518_phy_writebits(phydev, 0x1e, 14, 2, 1);
 	}

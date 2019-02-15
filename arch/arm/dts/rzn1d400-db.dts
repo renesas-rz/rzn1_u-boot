@@ -20,12 +20,18 @@
 	compatible = "renesas,rzn1d-db", "renesas,rzn1";
 
 	chosen {
-		stdout-path = &uart0;
-		linux,stdout-path = &uart0;
+		stdout-path = "serial0:115200n8";
 	};
-	c2c_sram@200f8000 {
+	sram@20000000 {
 		compatible = "mmio-sram";
-		reg = <0x200f8000 0x8000>;
+		reg = <0x20000000 0x100000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		c2c_sram@f8000 {
+			compatible = "ctc-sram";
+			reg = <0xf8000 0x8000>;
+		};
 	};
 	hoard: cat: nmi: rmii {
 		#address-cells = <1>;
@@ -82,8 +88,8 @@
 /* Map the USB pinmux to the peripheral port */
 #define usb usbh_pci
 /* ethX refers to the physical pins for each ethernet interface. Here we simply
- * place them in the hoard node, and the users of the pins will then indicate
- * are needed by adding a pinctrl-0 entry for them.
+ * place them in the hoard node to avoid errors if they are not used. Users of
+ * the pins will then indicate are needed by adding a pinctrl-0 entry for them.
  */
 #define eth0 hoard
 #define eth1 hoard
@@ -224,7 +230,7 @@
 &eth_miic {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pins_refclk>;
+	pinctrl-0 = <&pins_refclk_rgmii>;
 
 	/*
 	 * This dts is for use Cortex M3 code, e.g. GOAL, that sets the RIN Mode

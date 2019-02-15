@@ -228,6 +228,16 @@
 			RZN1_MUX_REFCLK(61, CLK_ETH_NAND)	/* REFCLK_MII[1] */
 		>;
 	};
+	pins_refclk_mii0: pins_refclk_mii0 {
+		renesas,rzn1-pinmux-ids = <
+			RZN1_MUX_REFCLK(60, CLK_ETH_NAND)	/* REFCLK_MII[0] */
+		>;
+	};
+	pins_refclk_mii1: pins_refclk_mii1 {
+		renesas,rzn1-pinmux-ids = <
+			RZN1_MUX_REFCLK(61, CLK_ETH_NAND)	/* REFCLK_MII[1] */
+		>;
+	};
 	pins_switch: pins_switch {
 		renesas,rzn1-pinmux-ids = <
 			RZN1_MUX_SWITCH(80, MAC_MTIP_SWITCH)	/* SWITCH_MII_LINK[5] */

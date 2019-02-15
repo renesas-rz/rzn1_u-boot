@@ -18,8 +18,7 @@
 	compatible = "renesas,rzn1l-db", "renesas,rzn1";
 
 	chosen {
-		stdout-path = &uart0;
-		linux,stdout-path = &uart0;
+		stdout-path = "serial0:115200n8";
 	};
 	hoard: cat: nmi: rmii {
 		#address-cells = <1>;
@@ -159,7 +158,7 @@
 };
 &ethswitch {
 	u-boot,dm-pre-reloc;
-	status = "disabled";
+	status = "okay";
 	bus_freq = <2500000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_mdio1>,
@@ -175,6 +174,7 @@
 		device_type = "ethernet-phy";
 		phy-mode = "mii";
 		reg = <5>;
+		micrel,10mbps-preamble-restore;
 		/* Set LED0 as active low link status */
 		micrel,led-mode = <1>;
 		/* Interrupt is on GPIO 96 */
@@ -185,6 +185,7 @@
 		device_type = "ethernet-phy";
 		phy-mode = "mii";
 		reg = <4>;
+		micrel,10mbps-preamble-restore;
 		/* Set LED0 as active low link status */
 		micrel,led-mode = <1>;
 		/* Interrupt is on GPIO 95 */
