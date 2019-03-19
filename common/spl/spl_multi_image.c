@@ -52,6 +52,8 @@ DECLARE_GLOBAL_DATA_PTR;
 #define IH_MAGIC	0x27051956	/* Image Magic Number		*/
 #endif
 
+#define otp_readl(addr) \
+	readl(RZN1_OTP_BASE + addr)
 #define sysctrl_readl(addr) \
 	readl(RZN1_SYSTEM_CTRL_BASE + addr)
 #define sysctrl_writel(val, addr) \
@@ -282,12 +284,12 @@ static u32 reserve_core_range(int core, u32 size)
 	return dest;
 }
 
-/* Use the BootROM code to check the signature */
+/* Check the signature */
 static int verify_signature(
 	const BLpHeader_t * const pBLp_Header, const void * const pPayload,
 	u32 exec_offset)
 {
-	boot_rom_api_t *pAPI = (boot_rom_api_t *)CRYPTO_API_ADDRESS;
+	secure_boot_api_t *pAPI = (secure_boot_api_t *)CRYPTO_API_ADDRESS;
 	SB_StorageArea_t StorageArea;
 	u32 ret;
 
@@ -826,10 +828,6 @@ int spl_start_uboot(void);
 static int __spl_load_multi_images(void)
 {
 	struct pkg_table *table;
-#if !defined(RZN1_SKIP_BOOTROM_CALLS)
-	boot_rom_api_t *pAPI = (boot_rom_api_t *)CRYPTO_API_ADDRESS;
-	u32 state;
-#endif
 	int must_verify = 0;
 	int retries_count = PKGT_REDUNDANCY_COUNT;
 	u32 media_offset = 0x10000;
@@ -842,7 +840,7 @@ static int __spl_load_multi_images(void)
 	 * Fixed position for PKG Table.
 	 * SPKGs must be signed using a load address attribute that
 	 * matches the address U-Boot/SPL loads the payload into.
-	 * Why? Because the BootROM function that verifies the SPKG signature
+	 * Why? Because the secure boot function that verifies the SPKG signature
 	 * checks this load address attribute. Not particularly helpful...
 	 * The top 1KB is reserved for this, the address is 0x40FFC00.
 	 */
@@ -854,22 +852,12 @@ static int __spl_load_multi_images(void)
 	env_relocate_spec();
 #endif
 
-#if !defined(RZN1_SKIP_BOOTROM_CALLS)
-	/*
-	 * Get the BootROM to tell us if it's possible to, and if we need to,
-	 * verify the signature of the images.
-	 */
-	state = pAPI->read_security_state();
-	if ((state & 0x1) && (state & 0x2))
-		return -EREQUIRE_SECURE_BOOT;
-	if (state & 0x1)
+	/* Check if verify is necessary */
+	if (otp_readl(0x10) & (1 << 3))
 		must_verify = 1;
-#else
-	printf("SPL: Warning: Skipping signature verification!\n");
-#endif
-
-#if defined(RZN1_FORCE_VERIFY_USING_BOOTROM)
-	/* Force the BootROM to verify the image, used for testing */
+    
+#if defined(RZN1_FORCE_VERIFY)
+	/* Force verifying the image, used for testing */ 
 	must_verify = 1;
 	printf("SPL: Forced signature verification!\n");
 #endif
