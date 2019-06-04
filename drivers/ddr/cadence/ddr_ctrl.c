@@ -150,6 +150,41 @@ void cdns_ddr_set_odt_map(void *base, int cs, u16 odt_map)
 	writew(odt_map, reg);
 }
 
+void cdns_ddr_single_bank(void *ddr_ctrl_base, u16 odt_impedance, u16 drive_strength)
+{
+	/* CS0 */
+	cdns_ddr_set_mr1(ddr_ctrl_base, 0,
+		odt_impedance,
+		drive_strength);
+	cdns_ddr_set_mr2(ddr_ctrl_base, 0,
+		MR2_DYNAMIC_ODT_OFF,
+		MR2_SELF_REFRESH_TEMP_EXT);
+
+	/* ODT_WR_MAP_CS0 = 1, ODT_RD_MAP_CS0 = 0 */
+	cdns_ddr_set_odt_map(ddr_ctrl_base, 0, 0x0100);
+}
+
+void cdns_ddr_dual_bank(void *ddr_ctrl_base, u16 odt_impedance, u16 drive_strength)
+{
+	int cs;
+
+	/* CS0 and CS1 */
+	for (cs = 0; cs < 2; cs++) {
+		cdns_ddr_set_mr1(ddr_ctrl_base, cs,
+			odt_impedance,
+			drive_strength);
+		cdns_ddr_set_mr2(ddr_ctrl_base, cs,
+			MR2_DYNAMIC_ODT_OFF,
+			MR2_SELF_REFRESH_TEMP_EXT);
+	}
+
+	/* ODT_WR_MAP_CS0 = 2, ODT_RD_MAP_CS0 = 2 */
+	cdns_ddr_set_odt_map(ddr_ctrl_base, 0, 0x0202);
+
+	/* ODT_WR_MAP_CS1 = 1, ODT_RD_MAP_CS1 = 1 */
+	cdns_ddr_set_odt_map(ddr_ctrl_base, 1, 0x0101);
+}
+
 void cdns_ddr_set_odt_times(void *base, u8 TODTL_2CMD, u8 TODTH_WR, u8 TODTH_RD,
 			    u8 WR_TO_ODTH, u8 RD_TO_ODTH)
 {

@@ -163,6 +163,16 @@ void cdns_ddr_set_mr2(void *base, int cs, u16 dynamic_odt, u16 self_refresh_temp
 void cdns_ddr_set_odt_map(void *base, int cs, u16 odt_map);
 
 /**
+ * Set ODT impedance and drive strength for single DDR bank.
+ */
+void cdns_ddr_single_bank(void *ddr_ctrl_base, u16 odt_impedance, u16 drive_strength);
+
+/**
+ * Set ODT impedance and drive strength for dual DDR banks.
+ */
+void cdns_ddr_dual_bank(void *ddr_ctrl_base, u16 odt_impedance, u16 drive_strength);
+
+/**
  * Set ODT settings in the DDR Controller.
  */
 void cdns_ddr_set_odt_times(void *base, u8 TODTL_2CMD, u8 TODTH_WR, u8 TODTH_RD,

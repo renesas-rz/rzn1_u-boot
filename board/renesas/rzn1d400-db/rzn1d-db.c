@@ -257,20 +257,6 @@ int board_late_init(void)
 extern u32 ddr_00_87_async[];
 extern u32 ddr_350_374_async[];
 
-void rzn1_ddr3_single_bank(void *ddr_ctrl_base)
-{
-	/* CS0 */
-	cdns_ddr_set_mr1(ddr_ctrl_base, 0,
-		MR1_ODT_IMPEDANCE_60_OHMS,
-		MR1_DRIVE_STRENGTH_40_OHMS);
-	cdns_ddr_set_mr2(ddr_ctrl_base, 0,
-		MR2_DYNAMIC_ODT_OFF,
-		MR2_SELF_REFRESH_TEMP_EXT);
-
-	/* ODT_WR_MAP_CS0 = 1, ODT_RD_MAP_CS0 = 0 */
-	cdns_ddr_set_odt_map(ddr_ctrl_base, 0, 0x0100);
-}
-
 int dram_init(void)
 {
 #if defined(CONFIG_CADENCE_DDR_CTRL)
@@ -289,7 +275,9 @@ int dram_init(void)
 	rzn1_ddr_ctrl_init(ddr_00_87_async, ddr_350_374_async,
 			   CONFIG_SYS_SDRAM_SIZE);
 
-	rzn1_ddr3_single_bank((void *)RZN1_DDR_BASE);
+	cdns_ddr_single_bank((void *)RZN1_DDR_BASE,
+		MR1_ODT_IMPEDANCE_60_OHMS,
+		MR1_DRIVE_STRENGTH_40_OHMS);
 	cdns_ddr_set_diff_cs_delays((void *)RZN1_DDR_BASE, 2, 7, 2, 2);
 	cdns_ddr_set_same_cs_delays((void *)RZN1_DDR_BASE, 0, 7, 0, 0);
 	cdns_ddr_set_odt_times((void *)RZN1_DDR_BASE, 5, 6, 6, 0, 4);
