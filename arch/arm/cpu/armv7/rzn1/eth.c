@@ -241,8 +241,8 @@ void rzn1_rin_init(void)
 	/* Enable RIN clocks */
 	rzn1_clk_set_gate(RZN1_HCLK_SWITCH_RG_ID, 1);
 
-	/* Set PTP to use 25MHz PLL clock */
-	rzn1_rin_prot_writel(0x4, PTP_MODE_CTRL);
+	/* Set PTP to use 125MHz PLL clock */
+	rzn1_rin_prot_writel(0x2, PTP_MODE_CTRL);
 }
 
 void rzn1_rin_reset_clks(void)
