@@ -50,7 +50,7 @@ static int do_dfu(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		goto done;
 	}
 #else
-	/* DFU EXT allows allows us to target multiple interfaces, all info
+	/* DFU EXT allows us to target multiple interfaces, all info
 	 * about the interfaces is in the 'dfu_ext_info' env var, rather than
 	 * passed in via the dfu command. */
 	char *usb_controller = "";
