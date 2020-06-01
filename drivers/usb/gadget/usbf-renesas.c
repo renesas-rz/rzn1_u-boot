@@ -1025,6 +1025,9 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 {
 	struct f_drv *chip = &controller;
 
+	driver->disconnect(&chip->gadget);
+	driver->unbind(&chip->gadget);
+
 	/* remove the pullup, apparently putting the controller
 	 * in reset doesn't do it! */
 	pullup(chip, 0);
